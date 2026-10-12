@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
   }
   std::cout << "Client connected\n";
 
-  char* buffer[256];
+  char buffer[256];
   int received = recv(clientfd,buffer,256,0);
   if(received >= 0 )
   {
