@@ -67,14 +67,19 @@ int main(int argc, char **argv) {
   std::cout << "Client connected\n";
   
   ssize_t received = 0;
-  do
+  
+  while(true)
   {
     char buffer[256];
     received = recv(clientfd,buffer,256,0);
+    
+    if ((received <= 0))
+      break;
+
     std::string msg = Msg.encodeMsg("PONG");
     const char* response = msg.data();
     send(clientfd,response, strlen(response), 0);
-  }while(received > 0);
+  }
   
   if(received < 0 )
   {
