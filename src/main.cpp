@@ -1,3 +1,4 @@
+#include "resp_encoder.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <string>
@@ -8,11 +9,15 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include "resp_encoder.hpp"
+
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
-  
+
+  RESPEncoder Msg;
+
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
    std::cerr << "Failed to create server socket\n";
@@ -52,10 +57,28 @@ int main(int argc, char **argv) {
 
   // Uncomment the code below to pass the first stage
   
-   accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-   std::cout << "Client connected\n";
+  int clientfd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+  if(clientfd < 0)
+  {
+    std::cerr << "accept failed!" << std::endl;
+    close(server_fd);
+    return 0;
+  }
+  std::cout << "Client connected\n";
+
+  char* buffer[256];
+  int received = recv(clientfd,buffer,256,0);
+  if(received >= 0 )
+  {
+    std::string msg = Msg.encodeMsg("PONG");
+    const char* response = msg.data();
+
+    send(clientfd,response, strlen(response), 0);
+  }
+  
+  close(clientfd);
    
-   close(server_fd);
+  close(server_fd);
 
   return 0;
 }
