@@ -1,4 +1,3 @@
-#include "resp_encoder.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <string>
@@ -9,13 +8,24 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "resp_encoder.hpp"
+#include "redis_server.hpp"
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
+  RedisServer r_server;
+
+  if(!r_server.launchServer())
+    return 1;
+
+  while (r_server.acceptClientConnection())
+  {
+    continue;
+  }
+
+  /*
   RESPEncoder Msg;
 
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -94,6 +104,6 @@ int main(int argc, char **argv) {
   close(clientfd);
    
   close(server_fd);
-
+  */
   return 0;
 }
