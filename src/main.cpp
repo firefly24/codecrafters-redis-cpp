@@ -65,15 +65,24 @@ int main(int argc, char **argv) {
     return 0;
   }
   std::cout << "Client connected\n";
-
-  char buffer[256];
-  int received = recv(clientfd,buffer,256,0);
-  if(received >= 0 )
+  
+  ssize_t received = 0;
   {
+    char buffer[256];
+    ssize_t received = recv(clientfd,buffer,256,0);
     std::string msg = Msg.encodeMsg("PONG");
     const char* response = msg.data();
-
     send(clientfd,response, strlen(response), 0);
+  }while(received > 0);
+  
+  if(received < 0 )
+  {
+    // handle client connection failure
+    std::cerr << "Receive failed!" << std::endl;
+  }
+  else if(received ==0 )
+  {
+    // close connection
   }
   
   close(clientfd);
