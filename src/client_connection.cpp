@@ -50,11 +50,16 @@ bool ClientConnection::serveRequest()
             //    std::cout << word << "* " ;
             //std::cout << buffer << std::endl;
 
-            std::string response = commandExecutor(cmd);
+            std::string response,result;
+            if(!cmd.empty() && cmd[0] == "PING")
+                response = "PONG";
+            else
+            {
+                result = commandExecutor(cmd);
+                response = encoder.encodeMsg(result);
+            }
 
-            std::string msg = encoder.encodeMsg(response);
-
-            ssize_t sent = send(client_fd,msg.data(), msg.size(), 0);
+            ssize_t sent = send(client_fd,response.data(), response.size(), 0);
             if(sent < 0)
             {
                 std::cerr << "Send failed" << std::endl;
