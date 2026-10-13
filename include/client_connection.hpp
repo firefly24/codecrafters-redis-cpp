@@ -1,7 +1,5 @@
 #pragma once
 
-#include <thread>
-
 #include "resp_encoder.hpp"
 
 
@@ -10,7 +8,6 @@ class ClientConnection
 
 private:
     int client_fd;
-    std::thread connector;
     RESPEncoder encoder;
 public: 
     
@@ -18,6 +15,13 @@ public:
 
     void serve();
 
+    bool serveRequest();
+
+    void closeConnection();
+
+    bool isValid();
+
+    int getFd() const;
     ~ClientConnection();
 
     // disable copy

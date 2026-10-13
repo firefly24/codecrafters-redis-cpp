@@ -1,6 +1,5 @@
 #include <iostream>
 #include <cstdlib>
-#include <string>
 #include <cstring>
 #include <unistd.h>
 #include <sys/types.h>
@@ -20,12 +19,13 @@ int main(int argc, char **argv) {
   if(!r_server.launchServer())
     return 1;
 
+  r_server.runEventLoop();
+
+  /*
   while (r_server.acceptClientConnection())
   {
     continue;
   }
-
-  /*
   RESPEncoder Msg;
 
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);

@@ -1,16 +1,16 @@
 #pragma once
-
 #include <cstdlib>
 #include <netinet/in.h>
 #include <cstring>
-//#include <sys/_types/_in_port_t.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <vector>
-#include <thread>
+#include <memory>
+
+#include "client_connection.hpp"
 
 #define PORTNO
 
@@ -23,19 +23,20 @@ private:
     int port{PORTNO};
     struct sockaddr_in server_addr{};
     struct sockaddr_in client_addr{};
+    std::vector<std::unique_ptr<ClientConnection>> clients;
     //int clientfd{-1};
     //std::vector<ClientConnection> client_conns;
-    std::vector<std::thread> server_threads;
-
 public:
 
     explicit RedisServer();
 
     bool launchServer();
 
-    bool acceptClientConnection();
+    bool connectNonBlockingClient();
 
-    void serveClient(int client_fd);
+    //void serveClient(int client_fd);
+
+    void runEventLoop();
 
     ~RedisServer();
 
