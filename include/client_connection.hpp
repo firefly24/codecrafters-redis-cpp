@@ -1,16 +1,12 @@
 #pragma once
 
 #include <vector>
-#include "resp_encoder.hpp"
-//#include "resp_parser.hpp"
-
 
 class ClientConnection
 {
 
 private:
     int client_fd;
-    RESPEncoder encoder;
 public: 
     
     explicit ClientConnection(int fd);
@@ -19,11 +15,11 @@ public:
 
     bool serveRequest();
 
-    std::string commandExecutor(std::vector<std::string> cmd);
+    std::string processCommand(const std::vector<std::string>& cmd);
 
     void closeConnection();
 
-    bool isValid();
+    bool isValid() const;
 
     int getFd() const;
     ~ClientConnection();

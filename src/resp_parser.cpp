@@ -1,7 +1,5 @@
 #include "resp_parser.hpp"
-#include <charconv>
 #include <string>
-#include <string_view>
 #include <iostream>
 
 std::string RESPParser::delimiter = "\r\n";
@@ -37,12 +35,12 @@ std::vector<std::string> RESPParser::parse(std::string input)
 std::vector<std::string> RESPParser::parseLineHelper(std::string& input, std::size_t begin, int num_words)
 {
     std::vector<std::string> in_words;
+    in_words.reserve(num_words);
 
-    //std::size_t begin = begin;
     if(begin >= input.length())
         return {};
 
-    while(num_words && (begin != std::string::npos))
+    while(num_words > 0 )
     {   
         std::string bulk_header;
         std::string payload;

@@ -6,13 +6,13 @@ class RESPEncoder
 {
 
  private:
-    std::string prefix;
-    std::string suffix;
-    std::string separator;
+//   static std::string prefix;
+//   static std::string suffix;
+   static std::string separator;
  public:
     
-    explicit RESPEncoder();
-    std::string encodeMsg(std::string msg);
+   RESPEncoder() = delete;
+   static std::string encodeMsg(std::string msg);
 
     // Delete copy 
     //RESPEncoder& operator=(const RESPEncoder&) = delete;
