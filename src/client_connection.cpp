@@ -52,7 +52,7 @@ bool ClientConnection::serveRequest()
 
             std::string response,result;
             if(!cmd.empty() && cmd[0] == "PING")
-                response = "PONG";
+                response = "+PONG\r\n";
             else
             {
                 result = commandExecutor(cmd);

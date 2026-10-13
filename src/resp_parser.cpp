@@ -30,7 +30,7 @@ std::vector<std::string> RESPParser::parse(std::string input)
             {
                 //auto result = std::from_chars(word.data(), word.data() + word.size(), num_words);
                 num_words = std::stoi(word.substr(1));
-                std::cout << "Num words: " << num_words <<std::endl;
+                //std::cout << "Num words: " << num_words <<std::endl;
                 input = input.substr(pos+2);
                 // TODO: how to check failures and return;
             }
@@ -65,7 +65,6 @@ std::vector<std::string> RESPParser::parseLineHelper(std::string input, int num_
 
         // extract word
         begin = pos+2;
-        //std::cout << word << "  **" <<begin << std::endl;
         if(begin > input.length())
             return {};
 
