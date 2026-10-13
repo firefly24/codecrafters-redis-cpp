@@ -8,31 +8,23 @@ std::string RESPParser::delimiter = "\r\n";
 
 std::vector<std::string> RESPParser::parse(std::string input)
 {
-   // std::vector<std::string> in_words;
     std::size_t pos,begin=0;
 
     if(input.empty())
         return {};
 
     pos = input.find("\r\n",begin);
-
-    //std::cout << pos << "  " << input<<  std::endl;
-
     if(pos!= std::string::npos)
     {
-        std::string word = input.substr(begin,pos);
-        //std::cout << word << "  " << word<<  std::endl;
+        std::string array_header = input.substr(begin,pos-begin);
         
-        if(!word.empty())
+        if(!array_header.empty())
         {
             int num_words=1;
-            if(word[0] == '*')
+            if(array_header.front() == '*')
             {
-                //auto result = std::from_chars(word.data(), word.data() + word.size(), num_words);
-                num_words = std::stoi(word.substr(1));
-                //std::cout << "Num words: " << num_words <<std::endl;
+                num_words = std::stoi(array_header.substr(1));
                 input = input.substr(pos+2);
-                // TODO: how to check failures and return;
             }
             return parseLineHelper(input,num_words);
         }
@@ -45,8 +37,6 @@ std::vector<std::string> RESPParser::parseLineHelper(std::string input, int num_
 {
     std::vector<std::string> in_words;
 
-    //std::cout << input << std::endl;
-
     std::size_t pos,begin = 0;
 
     while(num_words)
@@ -55,13 +45,13 @@ std::vector<std::string> RESPParser::parseLineHelper(std::string input, int num_
         if(pos == std::string::npos)
             return {};
 
-        std::string word = input.substr(begin,pos-begin);
+        std::string bulk_header = input.substr(begin,pos-begin);
 
         // parse length
-        if(word.empty() || (word[0] != '$') )
+        if(bulk_header.empty() || (bulk_header.front() != '$') )
             return {};
 
-        int wordlen  = std::stoi(word.substr(1));
+        int wordlen  = std::stoi(bulk_header.substr(1));
 
         // extract word
         begin = pos+2;
@@ -72,11 +62,18 @@ std::vector<std::string> RESPParser::parseLineHelper(std::string input, int num_
         if(pos == std::string::npos)
             return {};
         
-        word = input.substr(begin,wordlen);
+        std::string payload = input.substr(begin,pos-begin);
         
-        in_words.push_back(word);
+        if(payload.length() != wordlen)
+        {
+            std::cerr << "payload length mismatch observed : "<< payload 
+                     <<"(" << payload.length() << ") expected: " << wordlen << std::endl;
+            return {};
+        }
+        
+        in_words.push_back(payload);
         begin += wordlen+2;
-        //std:: cout << wordlen << ": " << word << "  **" << begin << std::endl;
+
         num_words--;
     }
     return in_words;
