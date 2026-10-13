@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <netinet/in.h>
 #include <cstring>
+#include <sys/poll.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -18,14 +19,12 @@ class RedisServer
 {
 private:
 
-    //RESPEncoder encoder;
     int server_fd{-1};
     int port{PORTNO};
     struct sockaddr_in server_addr{};
     struct sockaddr_in client_addr{};
     std::vector<std::unique_ptr<ClientConnection>> clients;
-    //int clientfd{-1};
-    //std::vector<ClientConnection> client_conns;
+
 public:
 
     explicit RedisServer();
@@ -34,7 +33,7 @@ public:
 
     bool connectNonBlockingClient();
 
-    //void serveClient(int client_fd);
+    void generateValidFds(std::vector<pollfd>& poll_fds);
 
     void runEventLoop();
 

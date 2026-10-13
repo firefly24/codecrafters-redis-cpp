@@ -76,30 +76,32 @@ bool RedisServer::connectNonBlockingClient()
         close(client_fd);
         return false;
     }
-
+    
     clients.push_back(std::make_unique<ClientConnection>(client_fd));
 
     std::cout << "Client connected\n";
     return true;
 }
 
+void RedisServer::generateValidFds(std::vector<pollfd>& poll_fds)
+{
+    poll_fds.clear();   
+    poll_fds.push_back({server_fd,POLLIN, 0});
+
+    // remove invalid/ closed client connections 
+    std::erase_if(clients,[](const std::unique_ptr<ClientConnection>& conn){return !conn->isValid();});
+    for (const auto& client_connection: clients)
+    {
+        poll_fds.push_back({client_connection->getFd(), POLLIN,0});
+    }
+}
+
 void RedisServer::runEventLoop()
 {
-    pollfd listener{};
-    listener.fd = server_fd;
-    listener.events = POLLIN;
-
     while(true)
     {
         std::vector<pollfd> poll_fds;
-        poll_fds.push_back({server_fd,POLLIN, 0});
-
-        // remove invalid/ closed client connections 
-        std::erase_if(clients,[](const std::unique_ptr<ClientConnection>& conn){return !conn->isValid();});
-        for (const auto& client_connection: clients)
-        {
-            poll_fds.push_back({client_connection->getFd(), POLLIN,0});
-        }
+        generateValidFds(poll_fds);
 
         int ready_count = poll(poll_fds.data(), poll_fds.size(), -1);
         if(ready_count < 0)
@@ -128,15 +130,10 @@ void RedisServer::runEventLoop()
             if(poll_fds[i].revents & POLLIN)
             {
                 if(!clients[i-1]->serveRequest())
-                {
                     clients[i-1]->closeConnection();
-                }
             }
-            if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL) )
-            {
-                // What to do where when client poll fails ? 
+            if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL) ) 
                 clients[i-1]->closeConnection();
-            }
         }
     }
 }

@@ -8,6 +8,7 @@ class RESPEncoder
  private:
     std::string prefix;
     std::string suffix;
+    std::string separator;
  public:
     
     explicit RESPEncoder();

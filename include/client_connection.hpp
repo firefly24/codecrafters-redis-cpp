@@ -1,6 +1,8 @@
 #pragma once
 
+#include <vector>
 #include "resp_encoder.hpp"
+//#include "resp_parser.hpp"
 
 
 class ClientConnection
@@ -16,6 +18,8 @@ public:
     void serve();
 
     bool serveRequest();
+
+    std::string commandExecutor(std::vector<std::string> cmd);
 
     void closeConnection();
 

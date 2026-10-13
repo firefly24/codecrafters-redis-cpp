@@ -1,8 +1,11 @@
 #include <cerrno>
+#include <string_view>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <iostream>
 #include "client_connection.hpp"
+
+#include "resp_parser.hpp"
 
 ClientConnection::ClientConnection(int fd): client_fd(fd)
 {
@@ -12,39 +15,6 @@ ClientConnection::ClientConnection(int fd): client_fd(fd)
 int ClientConnection::getFd() const
 {
     return client_fd;
-}
-
-void ClientConnection::serve()
-{
-    if(client_fd < 0 )
-        return;
-
-    ssize_t received = 0;
-    while(true)
-    {
-        char buffer[1024];
-        received = recv(client_fd,buffer,sizeof(buffer),0);
-    
-        if(received < 0 )
-        {
-            std::cerr << "Receive failed!" << std::endl;
-            break;
-        }
-        else if( received ==0 )
-        {
-            // client disconnected the connection
-            break;
-        }
-
-        std::string msg = encoder.encodeMsg("PONG");
-
-        ssize_t sent = send(client_fd,msg.data(), msg.size(), 0);
-        if(sent < 0)
-        {
-            std::cerr << "Send failed" << std::endl;
-            break;
-        }
-    }
 }
 
 /* Returns false only when client is no longer servicable, 
@@ -60,39 +30,53 @@ bool ClientConnection::serveRequest()
     if(is_servicable)
     {
         char buffer[1024];
-        received = recv(client_fd,buffer,sizeof(buffer),0);
+        received = recv(client_fd,buffer,sizeof(buffer)-1,0);
     
-        if(received < 0 )
+        if( received ==0 )
         {
-            if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-            {
-                is_servicable = true;
-            }
-            else 
-            {
-                std::cerr << "Receive failed!" << std::endl;
-                is_servicable = false;
-            }
-        }
-        else if( received ==0 )
-        {
-            // client disconnected the connection
-            //return false;
             is_servicable = false;
+        }
+        else if(received < 0 )
+        {
+            is_servicable = (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR);
+
+            if(!is_servicable)
+                std::cerr << "Receive failed!" << std::endl;
         }
         else 
         {
-            std::string msg = encoder.encodeMsg("PONG");
+            std::vector<std::string> cmd = RESPParser::parse(std::string{buffer,(std::size_t)received});
+            //for(const auto& word: cmd)
+            //    std::cout << word << "* " ;
+            //std::cout << buffer << std::endl;
+
+            std::string response = commandExecutor(cmd);
+
+            std::string msg = encoder.encodeMsg(response);
 
             ssize_t sent = send(client_fd,msg.data(), msg.size(), 0);
             if(sent < 0)
             {
                 std::cerr << "Send failed" << std::endl;
-                //return true;
             }
         }
     }
     return is_servicable;
+}
+
+std::string ClientConnection::commandExecutor(std::vector<std::string> cmd)
+{
+    if(cmd.empty())
+        return "";
+
+    if(cmd[0] == "PING")
+        return "PONG";
+
+    if(cmd[0] == "ECHO")
+    {
+        return cmd[1];
+    }
+    return "";
 }
 
 void ClientConnection::closeConnection()
