@@ -8,15 +8,15 @@ std::string RESPParser::delimiter = "\r\n";
 
 std::vector<std::string> RESPParser::parse(std::string input)
 {
-    std::size_t pos,begin=0;
+    std::size_t pos;
 
     if(input.empty())
         return {};
 
-    pos = input.find("\r\n",begin);
+    pos = input.find("\r\n");
     if(pos!= std::string::npos)
     {
-        std::string array_header = input.substr(begin,pos-begin);
+        std::string array_header = input.substr(0,pos);
         
         if(!array_header.empty())
         {
@@ -39,42 +39,58 @@ std::vector<std::string> RESPParser::parseLineHelper(std::string input, int num_
 
     std::size_t pos,begin = 0;
 
-    while(num_words)
+    while(num_words && (begin != std::string::npos))
     {   
-        pos = input.find("\r\n", begin);
-        if(pos == std::string::npos)
+        //if(extractRESPToken(std::string &input, std::size_t &begin))
+        std::string bulk_header;
+        std::string payload;
+
+        bulk_header = extractRESPToken(input, begin);
+        if (begin == std::string::npos)
             return {};
-
-        std::string bulk_header = input.substr(begin,pos-begin);
-
-        // parse length
-        if(bulk_header.empty() || (bulk_header.front() != '$') )
-            return {};
-
-        int wordlen  = std::stoi(bulk_header.substr(1));
-
-        // extract word
-        begin = pos+2;
-        if(begin > input.length())
-            return {};
-
-        pos = input.find("\r\n", begin);
-        if(pos == std::string::npos)
-            return {};
-        
-        std::string payload = input.substr(begin,pos-begin);
-        
-        if(payload.length() != wordlen)
+        else
         {
-            std::cerr << "payload length mismatch observed : "<< payload 
-                     <<"(" << payload.length() << ") expected: " << wordlen << std::endl;
-            return {};
-        }
-        
-        in_words.push_back(payload);
-        begin += wordlen+2;
+            // parse length
+            if(bulk_header.empty() || (bulk_header.front() != '$') )
+                return {};
+            else
+            {
+                int payload_length  = std::stoi(bulk_header.substr(1));
 
+                payload = extractRESPToken(input,begin);
+
+                if(begin == std::string::npos)
+                    return {};
+   
+                if(payload.length() == payload_length)
+                {
+                    in_words.push_back(payload);
+                }
+                else 
+                {
+                    std::cerr << "payload length mismatch observed : "<< payload 
+                        <<"(" << payload.length() << ") expected: " << payload_length << std::endl;
+                    return {};
+                }
+            } 
+        }
         num_words--;
     }
     return in_words;
+}
+
+std::string RESPParser::extractRESPToken(std::string &input, std::size_t& begin)
+{
+    if(!input.empty() && (begin < input.length()) )
+    {
+        std::size_t pos = input.find(delimiter, begin);
+        if(pos != std::string::npos)
+        {
+            std::string token = input.substr(begin, pos-begin);
+            begin = pos + delimiter.length();
+            return token;
+        }
+    }
+    begin = std::string::npos;
+    return {};
 }
