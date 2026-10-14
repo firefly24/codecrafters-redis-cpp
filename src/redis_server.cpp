@@ -183,13 +183,8 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
         if(cmd.size() > 1)
         {
             if(global_store.getValue(cmd[1],response))
-            {
                 return MsgType::BULK;
-            }
-            else
-            {
-                return MsgType::EMPTY;
-            }
+            return MsgType::EMPTY;
         }
     }
     if(cmd[0] == "RPUSH")
@@ -244,7 +239,7 @@ MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::str
     int list_size = -1;
     if ( (cmd.size() >= 3) && (cmd[0] == "RPUSH") )
     {
-        list_size = global_store.list_push(cmd[1], cmd[2]);
+        list_size = global_store.list_push(cmd[1], cmd);
     }
     if(list_size == -1)
     {
@@ -298,7 +293,7 @@ void RedisServer::SharedStore::setValue(const std::string&key,const std::string&
     kv_store[key] = std::move(record);
 }
 
-int RedisServer::SharedStore::list_push(const std::string& list_name,const std::string& element)
+int RedisServer::SharedStore::list_push(const std::string& list_name,const std::vector<std::string>& elements)
 {
     if(list_name.empty())
         return -1;
@@ -306,7 +301,14 @@ int RedisServer::SharedStore::list_push(const std::string& list_name,const std::
     std::vector<std::string>& list = list_store[list_name];
 
     // permit empty element string for now, unless specified later
-    list.push_back(element);
+    //list.push_back(element);
+    int idx = 2;
+
+    while(idx < elements.size())
+    {
+        list.push_back(std::move(elements[idx]));
+        idx++;
+    }
 
     return list.size();
 }

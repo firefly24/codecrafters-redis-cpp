@@ -55,7 +55,7 @@ private:
         void setValue(const std::string&key,const std::string& value, int expiry = -1, ExpiryTimeUnit unit = ExpiryTimeUnit::MILLISECONDS);
 
         // for lists
-        int list_push(const std::string& list,const std::string& element);
+        int list_push(const std::string& list,const std::vector<std::string>& element);
 
     };
 
@@ -66,6 +66,9 @@ private:
     struct sockaddr_in client_addr{};
     std::vector<std::unique_ptr<ClientConnection>> clients;
     SharedStore global_store;
+
+    MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
+    MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response);
 
 public:
 
@@ -80,9 +83,6 @@ public:
     void runEventLoop();
 
     MsgType processCommand(const std::vector<std::string>& cmd, std::string& response);
-
-    MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
-    MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response);
 
     ~RedisServer();
 
