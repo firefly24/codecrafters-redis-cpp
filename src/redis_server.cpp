@@ -98,6 +98,15 @@ void RedisServer::generateValidFds(std::vector<pollfd>& poll_fds)
 
 void RedisServer::runEventLoop()
 {
+    if(is_polling)
+    {
+        std::cerr << "server event loop already running" << std::endl;
+        return;
+    }
+
+    // right now the server is single threaded, so this should be safe
+    // reconsider changing such status variables to atomic/inside lock, when moving to multithreaded design
+    is_polling = true; 
     while(true)
     {
         std::vector<pollfd> poll_fds;

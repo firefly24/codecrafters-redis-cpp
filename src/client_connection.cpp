@@ -27,8 +27,6 @@ bool ClientConnection::serveRequest()
     if(client_fd < 0)
         return false;
 
-    bool is_servicable = true;
-
     char buffer[1024];
     ssize_t received = recv(client_fd,buffer,sizeof(buffer),0);
 
@@ -61,7 +59,7 @@ bool ClientConnection::serveRequest()
             std::cerr << "Send failed" << std::endl;
         }
     }
-    return is_servicable;
+    return true;
 }
 
 void ClientConnection::closeConnection()

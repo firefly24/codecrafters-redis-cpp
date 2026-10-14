@@ -41,6 +41,7 @@ private:
 
     int server_fd{-1};
     int port{PORTNO};
+    bool is_polling{false};
     struct sockaddr_in server_addr{};
     struct sockaddr_in client_addr{};
     std::vector<std::unique_ptr<ClientConnection>> clients;
