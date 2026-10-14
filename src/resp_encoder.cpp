@@ -20,6 +20,8 @@ std::string RESPEncoder::encodeMsg(std::string msg, MsgType encode_type)
     {
         return "$-1" + separator;
     }
+    if(encode_type == MsgType::INVALID)
+        return "";
     return "";
 }
 

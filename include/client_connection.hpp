@@ -12,8 +12,6 @@ public:
     
     explicit ClientConnection(int fd, RedisServer& server);
 
-    void serve();
-
     bool serveRequest();
 
     void closeConnection();

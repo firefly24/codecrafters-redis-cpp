@@ -1,4 +1,6 @@
 #pragma once
+
+#include <chrono>
 #include <cstdlib>
 #include <netinet/in.h>
 #include <cstring>
@@ -15,7 +17,7 @@
 #include "client_connection.hpp"
 #include "message_types.hpp"
 
-#define PORTNO
+#define PORTNO 6379
 
 class RedisServer
 {
@@ -24,7 +26,13 @@ private:
     class SharedStore
     {
     private:
-        std::unordered_map<std::string,std::string> kv_store;
+
+        struct KeyRecord
+        {
+            std::string value;
+            std::optional<std::chrono::steady_clock::time_point> expiry;
+        };
+        std::unordered_map<std::string,KeyRecord> kv_store;
     public:
         SharedStore() = default;
         // delete copy
@@ -36,7 +44,7 @@ private:
         SharedStore(SharedStore&&) = delete;
 
         bool getValue(const std::string& key, std::string& value);
-        void setValue(const std::string&key,const std::string& value);
+        void setValue(const std::string&key,const std::string& value, int expiry = -1, bool is_ms = true);
     };
 
     int server_fd{-1};

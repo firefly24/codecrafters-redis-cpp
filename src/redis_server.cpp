@@ -1,9 +1,11 @@
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <poll.h>
 #include <cerrno>
 #include <fcntl.h>
+#include <string>
 #include <sys/fcntl.h>
 #include <sys/poll.h>
 
@@ -13,7 +15,7 @@
 
 RedisServer::RedisServer()
 {
-    port = 6379;
+    port = PORTNO;
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
         std::cerr << "Failed to create server socket\n";
@@ -115,6 +117,10 @@ void RedisServer::runEventLoop()
         int ready_count = poll(poll_fds.data(), poll_fds.size(), -1);
         if(ready_count < 0)
         {
+            // TODO: handle interrupted by a signal case in future
+            if ( errno == EINTR )
+                continue;
+
             std::cerr << "Poll failed" << std::endl;
             break;
         }
@@ -189,7 +195,27 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
     {
         if(cmd.size() >=3)
         {
-            global_store.setValue(cmd[1],cmd[2]); 
+            if(cmd.size() >= 5)
+            {
+                if(cmd[3] == "EX")
+                {
+                    int duration_sec = std::stoi(cmd[4]);
+                    global_store.setValue(cmd[1],cmd[2],duration_sec,false);
+                }
+                else if(cmd[3] == "PX")
+                {
+                    int duration_ms = std::stoi(cmd[4]);
+                    global_store.setValue(cmd[1], cmd[2], duration_ms,true);
+                }
+                else {
+                    response = "";
+                    return MsgType::INVALID;
+                }
+            }
+            else 
+            {
+                global_store.setValue(cmd[1],cmd[2]); 
+            }
             response = "OK";
             return MsgType::SIMPLE;
         }
@@ -208,15 +234,36 @@ bool RedisServer::SharedStore::getValue(const std::string& key, std::string& val
 {
     if(kv_store.contains(key))
     {
-        value = kv_store[key];
+        KeyRecord& record = kv_store[key];
+        if( record.expiry.has_value() )
+        {
+            auto now = std::chrono::steady_clock::now();
+            if(now >= record.expiry)
+            {
+                // delete expired entry
+                kv_store.erase(key);
+                return false;
+            }
+        }
+        value = record.value;
         return true;
     }
     return false;
 }
         
-void RedisServer::SharedStore::setValue(const std::string&key,const std::string& value)
+void RedisServer::SharedStore::setValue(const std::string&key,const std::string& value, int expiry,bool is_ms)
 {
-    kv_store[key] = value;
+    KeyRecord record;
+    record.value = value;
+
+    if(expiry != -1)
+    {
+        if(is_ms)
+            record.expiry = std::chrono::steady_clock::now() + std::chrono::milliseconds(expiry);
+        else
+            record.expiry = std::chrono::steady_clock::now() + std::chrono::seconds(expiry);
+    }
+    kv_store[key] = std::move(record);
 }
 
 

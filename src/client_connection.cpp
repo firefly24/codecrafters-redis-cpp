@@ -43,6 +43,7 @@ bool ClientConnection::serveRequest()
     }
     else 
     {
+        // TODO: incomplete send/receive not supported yet
         std::vector<std::string> cmd = RESPParser::parse(std::string{buffer,(std::size_t)received});
 
         //for(const auto& word : cmd)
