@@ -58,7 +58,7 @@ bool ClientConnection::serveRequest()
         {
             std::vector<std::string> reply = server_.processCommandComplex(cmd);
             if(reply.empty())
-                response = RESPEncoder::encodeMsg("",MsgType::EMPTY);
+                response = RESPEncoder::encodeMsg("",MsgType::BULK);
             else
                 response = RESPEncoder::encodeMsgArray(reply);
         }
