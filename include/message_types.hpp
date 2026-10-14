@@ -6,5 +6,6 @@ enum class MsgType
     BULK,
     EMPTY,
     INTEGER,
+    ARRAY,
     INVALID 
 };

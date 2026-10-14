@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "message_types.hpp"
 
 //class MsgType;
@@ -15,6 +16,7 @@ class RESPEncoder
     
    RESPEncoder() = delete;
    static std::string encodeMsg(std::string msg, MsgType encode_type);
+   static std::string encodeMsgArray(std::vector<std::string>& array);
 
     // Delete copy 
     //RESPEncoder& operator=(const RESPEncoder&) = delete;

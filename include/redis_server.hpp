@@ -56,6 +56,7 @@ private:
 
         // for lists
         int list_push(const std::string& list,const std::vector<std::string>& element);
+        std::vector<std::string> getListRange(const std::string& list_name,int start,int stop);
 
     };
 
@@ -67,6 +68,7 @@ private:
     std::vector<std::unique_ptr<ClientConnection>> clients;
     SharedStore global_store;
 
+    std::vector<std::string> handleLeftRange(const std::vector<std::string>& cmd);
     MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
     MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response);
 
@@ -83,6 +85,8 @@ public:
     void runEventLoop();
 
     MsgType processCommand(const std::vector<std::string>& cmd, std::string& response);
+
+    std::vector<std::string> processCommandComplex(const std::vector<std::string>& cmd);
 
     ~RedisServer();
 

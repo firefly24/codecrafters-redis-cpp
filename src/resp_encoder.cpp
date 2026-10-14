@@ -29,4 +29,15 @@ std::string RESPEncoder::encodeMsg(std::string msg, MsgType encode_type)
     return "";
 }
 
+std::string RESPEncoder::encodeMsgArray(std::vector<std::string>& array)
+{
+    std::string response = "*" + std::to_string(array.size()) + separator;
+    
+    for(const auto& word: array)
+    {
+        response += "$" + std::to_string(word.size()) + separator + word + separator;
+    }
+    return response;
+}
+
 

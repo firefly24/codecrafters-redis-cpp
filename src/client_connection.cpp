@@ -4,6 +4,7 @@
 #include <iostream>
 #include "client_connection.hpp"
 
+#include "message_types.hpp"
 #include "redis_server.hpp"
 #include "resp_encoder.hpp"
 #include "resp_parser.hpp"
@@ -50,9 +51,21 @@ bool ClientConnection::serveRequest()
         //    std::cout << word << "*" << std::endl;
 
         std::string result ="";
+        std::string response;
         MsgType encoding_type = server_.processCommand(cmd,result);
 
-        std::string response = RESPEncoder::encodeMsg(result, encoding_type);
+        if(encoding_type == MsgType::ARRAY)
+        {
+            std::vector<std::string> reply = server_.processCommandComplex(cmd);
+            if(reply.empty())
+                response = RESPEncoder::encodeMsg("",MsgType::EMPTY);
+            else
+                response = RESPEncoder::encodeMsgArray(reply);
+        }
+        else 
+        {
+            response = RESPEncoder::encodeMsg(result, encoding_type);
+        }
 
         ssize_t sent = send(client_fd,response.data(), response.size(), 0);
         if(sent < 0)

@@ -196,8 +196,25 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
     {
         return handleSetKey(cmd,response);
     }
+    if(cmd[0] == "LRANGE")
+    {
+        //std::vector<std::string> result = handleLeftRange(cmd);
+        return MsgType::ARRAY;
+    }
     response = "";
     return MsgType::INVALID;
+}
+
+std::vector<std::string> RedisServer::processCommandComplex(const std::vector<std::string>& cmd)
+{
+    if(cmd.empty())
+        return {};
+
+    if( cmd[0] == "LRANGE" )
+    {
+        return handleLeftRange(cmd);
+    }
+    return {};
 }
 
 MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::string& response)
@@ -250,6 +267,18 @@ MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::str
     return MsgType::INTEGER;
 }
 
+std::vector<std::string> RedisServer::handleLeftRange(const std::vector<std::string>& cmd)
+{
+    if( (cmd.size() == 4) && (cmd[0]== "LRANGE") )
+    {
+        // TODO: can throw exception, replace with robust mechanism later
+        int start = std::stoi(cmd[2]);
+        int stop = std::stoi(cmd[3]);
+        return global_store.getListRange(cmd[1],start,stop);
+    }
+    return {};
+}
+
 RedisServer::~RedisServer()
 {
     if(server_fd >= 0)
@@ -293,6 +322,8 @@ void RedisServer::SharedStore::setValue(const std::string&key,const std::string&
     kv_store[key] = std::move(record);
 }
 
+
+// Takes full command vector as input, and consumes all the list elements
 int RedisServer::SharedStore::list_push(const std::string& list_name,const std::vector<std::string>& elements)
 {
     if(list_name.empty())
@@ -301,14 +332,34 @@ int RedisServer::SharedStore::list_push(const std::string& list_name,const std::
     std::vector<std::string>& list = list_store[list_name];
 
     // permit empty element string for now, unless specified later
-    //list.push_back(element);
     int idx = 2;
-
     while(idx < elements.size())
     {
-        list.push_back(std::move(elements[idx]));
-        idx++;
+        list.push_back(std::move(elements[idx++]));
     }
 
     return list.size();
+}
+
+std::vector<std::string> RedisServer::SharedStore::getListRange(const std::string& list_name,int start,int stop)
+{
+    if(list_name.empty())
+        return {};
+    
+    auto it = list_store.find(list_name);
+    if( it == list_store.end() )
+        return {};
+
+    const std::vector<std::string>& list = it->second;
+
+    int list_size = (int)list.size();
+    stop = std::min(stop, list_size - 1) ;
+
+    if( (start >= list_size) )
+        return {};
+
+    if( start > stop )
+        return {};
+
+    return std::vector(list.begin()+start, list.begin()+ stop+1);
 }
