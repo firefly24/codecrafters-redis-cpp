@@ -80,11 +80,13 @@ std::string RESPParser::extractRESPToken(std::string &input, std::size_t& begin)
 {
     if(!input.empty() && (begin < input.length()) )
     {
+        //std::cout << begin << " " << input[begin] << std::endl;
         std::size_t pos = input.find(delimiter, begin);
         if(pos != std::string::npos)
         {
             std::string token = input.substr(begin, pos-begin);
             begin = pos + delimiter.length();
+            //std::cout << token << "::" ;
             return token;
         }
     }

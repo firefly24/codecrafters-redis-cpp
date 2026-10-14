@@ -4,10 +4,11 @@
 #include <iostream>
 #include "client_connection.hpp"
 
+#include "redis_server.hpp"
 #include "resp_encoder.hpp"
 #include "resp_parser.hpp"
 
-ClientConnection::ClientConnection(int fd): client_fd(fd)
+ClientConnection::ClientConnection(int fd, RedisServer& server): client_fd(fd), server_(server)
 {
 
 }
@@ -46,8 +47,13 @@ bool ClientConnection::serveRequest()
     {
         std::vector<std::string> cmd = RESPParser::parse(std::string{buffer,(std::size_t)received});
 
-        std::string result = processCommand(cmd);
-        std::string response = RESPEncoder::encodeMsg(result);
+        //for(const auto& word : cmd)
+        //    std::cout << word << "*" << std::endl;
+
+        std::string result ="";
+        MsgType encoding_type = server_.processCommand(cmd,result);
+
+        std::string response = RESPEncoder::encodeMsg(result, encoding_type);
 
         ssize_t sent = send(client_fd,response.data(), response.size(), 0);
         if(sent < 0)
@@ -56,22 +62,6 @@ bool ClientConnection::serveRequest()
         }
     }
     return is_servicable;
-}
-
-std::string ClientConnection::processCommand(const std::vector<std::string>& cmd)
-{
-    if(cmd.empty())
-        return "";
-
-    if(cmd[0] == "PING")
-        return "PONG";
-
-    if(cmd[0] == "ECHO")
-    {
-        if(cmd.size() >1)
-            return cmd[1];
-    }
-    return "";
 }
 
 void ClientConnection::closeConnection()

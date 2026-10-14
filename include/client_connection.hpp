@@ -1,21 +1,20 @@
 #pragma once
 
-#include <vector>
+class RedisServer;
 
 class ClientConnection
 {
 
 private:
     int client_fd;
+    RedisServer &server_;
 public: 
     
-    explicit ClientConnection(int fd);
+    explicit ClientConnection(int fd, RedisServer& server);
 
     void serve();
 
     bool serveRequest();
-
-    std::string processCommand(const std::vector<std::string>& cmd);
 
     void closeConnection();
 

@@ -6,10 +6,10 @@
 #include <fcntl.h>
 #include <sys/fcntl.h>
 #include <sys/poll.h>
-#include <algorithm>
 
 #include "redis_server.hpp"
 #include "client_connection.hpp"
+#include "message_types.hpp"
 
 RedisServer::RedisServer()
 {
@@ -77,7 +77,7 @@ bool RedisServer::connectNonBlockingClient()
         return false;
     }
     
-    clients.push_back(std::make_unique<ClientConnection>(client_fd));
+    clients.push_back(std::make_unique<ClientConnection>(client_fd, *this));
 
     std::cout << "Client connected\n";
     return true;
@@ -138,8 +138,76 @@ void RedisServer::runEventLoop()
     }
 }
 
+
+MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::string& response)
+{
+    if(cmd.empty())
+    {
+        response = "";
+        return MsgType::EMPTY;
+    }
+
+    // std::cout << cmd[0] << std::endl;
+
+    if(cmd[0] == "PING")
+    {
+        response = "PONG";
+        return MsgType::SIMPLE;
+    }
+    if(cmd[0] == "ECHO")
+    {
+        if(cmd.size() >1)
+        {
+            response = cmd[1];
+            return MsgType::BULK;
+        }
+    }
+    if(cmd[0] == "GET")
+    {
+        if(cmd.size() > 1)
+        {
+            if(global_store.getValue(cmd[1],response))
+            {
+                return MsgType::BULK;
+            }
+            else
+            {
+                return MsgType::EMPTY;
+            }
+        }
+    }
+    if(cmd[0] == "SET")
+    {
+        if(cmd.size() >=3)
+        {
+            global_store.setValue(cmd[1],cmd[2]); 
+            response = "OK";
+            return MsgType::SIMPLE;
+        }
+    }
+    response = "";
+    return MsgType::INVALID;
+}
+
 RedisServer::~RedisServer()
 {
     if(server_fd >= 0)
         close(server_fd);
 }
+
+bool RedisServer::SharedStore::getValue(const std::string& key, std::string& value)
+{
+    if(kv_store.contains(key))
+    {
+        value = kv_store[key];
+        return true;
+    }
+    return false;
+}
+        
+void RedisServer::SharedStore::setValue(const std::string&key,const std::string& value)
+{
+    kv_store[key] = value;
+}
+
+
