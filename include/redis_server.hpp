@@ -19,6 +19,12 @@
 
 #define PORTNO 6379
 
+enum class ExpiryTimeUnit
+{
+    MILLISECONDS,
+    SECONDS
+};
+
 class RedisServer
 {
 private:
@@ -44,7 +50,7 @@ private:
         SharedStore(SharedStore&&) = delete;
 
         bool getValue(const std::string& key, std::string& value);
-        void setValue(const std::string&key,const std::string& value, int expiry = -1, bool is_ms = true);
+        void setValue(const std::string&key,const std::string& value, int expiry = -1, ExpiryTimeUnit unit = ExpiryTimeUnit::MILLISECONDS);
     };
 
     int server_fd{-1};

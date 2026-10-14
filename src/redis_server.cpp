@@ -200,12 +200,12 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
                 if(cmd[3] == "EX")
                 {
                     int duration_sec = std::stoi(cmd[4]);
-                    global_store.setValue(cmd[1],cmd[2],duration_sec,false);
+                    global_store.setValue(cmd[1],cmd[2],duration_sec,ExpiryTimeUnit::SECONDS);
                 }
                 else if(cmd[3] == "PX")
                 {
                     int duration_ms = std::stoi(cmd[4]);
-                    global_store.setValue(cmd[1], cmd[2], duration_ms,true);
+                    global_store.setValue(cmd[1], cmd[2], duration_ms,ExpiryTimeUnit::MILLISECONDS);
                 }
                 else {
                     response = "";
@@ -251,14 +251,14 @@ bool RedisServer::SharedStore::getValue(const std::string& key, std::string& val
     return false;
 }
         
-void RedisServer::SharedStore::setValue(const std::string&key,const std::string& value, int expiry,bool is_ms)
+void RedisServer::SharedStore::setValue(const std::string&key,const std::string& value, int expiry,ExpiryTimeUnit units)
 {
     KeyRecord record;
     record.value = value;
 
     if(expiry != -1)
     {
-        if(is_ms)
+        if(units == ExpiryTimeUnit::MILLISECONDS)
             record.expiry = std::chrono::steady_clock::now() + std::chrono::milliseconds(expiry);
         else
             record.expiry = std::chrono::steady_clock::now() + std::chrono::seconds(expiry);
