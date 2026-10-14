@@ -81,6 +81,7 @@ public:
 
     MsgType processCommand(const std::vector<std::string>& cmd, std::string& response);
 
+    MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
     MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response);
 
     ~RedisServer();

@@ -8,6 +8,7 @@
 #include <string>
 #include <sys/fcntl.h>
 #include <sys/poll.h>
+#include <vector>
 
 #include "redis_server.hpp"
 #include "client_connection.hpp"
@@ -198,28 +199,37 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
 
     if(cmd[0] == "SET")
     {
-        if(cmd.size() >=3)
+        return handleSetKey(cmd,response);
+    }
+    response = "";
+    return MsgType::INVALID;
+}
+
+MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::string& response)
+{
+    if(cmd.size() >=3 && cmd[0] == "SET")
+    {
+        if(cmd.size() == 3)
         {
-            if(cmd.size() >= 5)
+            global_store.setValue(cmd[1],cmd[2]); 
+            response = "OK";
+            return MsgType::SIMPLE;
+        }
+        else if(cmd.size() == 5)
+        {
+            int duration  = std::stoi(cmd[4]);
+
+            if(cmd[3] == "EX")
             {
-                if(cmd[3] == "EX")
-                {
-                    int duration_sec = std::stoi(cmd[4]);
-                    global_store.setValue(cmd[1],cmd[2],duration_sec,ExpiryTimeUnit::SECONDS);
-                }
-                else if(cmd[3] == "PX")
-                {
-                    int duration_ms = std::stoi(cmd[4]);
-                    global_store.setValue(cmd[1], cmd[2], duration_ms,ExpiryTimeUnit::MILLISECONDS);
-                }
-                else {
-                    response = "";
-                    return MsgType::INVALID;
-                }
+                global_store.setValue(cmd[1],cmd[2],duration,ExpiryTimeUnit::SECONDS);
             }
-            else 
+            else if(cmd[3] == "PX")
             {
-                global_store.setValue(cmd[1],cmd[2]); 
+                global_store.setValue(cmd[1], cmd[2], duration,ExpiryTimeUnit::MILLISECONDS);
+            }
+            else {
+                response = "";
+                return MsgType::INVALID;
             }
             response = "OK";
             return MsgType::SIMPLE;
