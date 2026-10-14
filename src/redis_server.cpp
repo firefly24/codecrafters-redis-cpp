@@ -191,6 +191,11 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
             }
         }
     }
+    if(cmd[0] == "RPUSH")
+    {
+        return handleListPush(cmd,response);
+    }
+
     if(cmd[0] == "SET")
     {
         if(cmd.size() >=3)
@@ -224,6 +229,22 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
     return MsgType::INVALID;
 }
 
+MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::string& response)
+{
+    int list_size = -1;
+    if ( (cmd.size() >= 3) && (cmd[0] == "RPUSH") )
+    {
+        list_size = global_store.list_push(cmd[1], cmd[2]);
+    }
+    if(list_size == -1)
+    {
+        response = "";
+        return MsgType::INVALID;
+    }
+    response = std::to_string(list_size);
+    return MsgType::INTEGER;
+}
+
 RedisServer::~RedisServer()
 {
     if(server_fd >= 0)
@@ -237,6 +258,7 @@ bool RedisServer::SharedStore::getValue(const std::string& key, std::string& val
         KeyRecord& record = kv_store[key];
         if( record.expiry.has_value() )
         {
+            // NOTE: Lazy expiration strateigy
             auto now = std::chrono::steady_clock::now();
             if(now >= record.expiry)
             {
@@ -266,4 +288,15 @@ void RedisServer::SharedStore::setValue(const std::string&key,const std::string&
     kv_store[key] = std::move(record);
 }
 
+int RedisServer::SharedStore::list_push(const std::string& list_name,const std::string& element)
+{
+    if(list_name.empty())
+        return -1;
 
+    std::vector<std::string>& list = list_store[list_name];
+
+    // permit empty element string for now, unless specified later
+    list.push_back(element);
+
+    return list.size();
+}

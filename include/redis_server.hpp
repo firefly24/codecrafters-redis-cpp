@@ -39,6 +39,7 @@ private:
             std::optional<std::chrono::steady_clock::time_point> expiry;
         };
         std::unordered_map<std::string,KeyRecord> kv_store;
+        std::unordered_map<std::string,std::vector<std::string>> list_store;
     public:
         SharedStore() = default;
         // delete copy
@@ -49,8 +50,13 @@ private:
         SharedStore& operator=(SharedStore&&) = delete;
         SharedStore(SharedStore&&) = delete;
 
+        // For KV store
         bool getValue(const std::string& key, std::string& value);
         void setValue(const std::string&key,const std::string& value, int expiry = -1, ExpiryTimeUnit unit = ExpiryTimeUnit::MILLISECONDS);
+
+        // for lists
+        int list_push(const std::string& list,const std::string& element);
+
     };
 
     int server_fd{-1};
@@ -74,6 +80,8 @@ public:
     void runEventLoop();
 
     MsgType processCommand(const std::vector<std::string>& cmd, std::string& response);
+
+    MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response);
 
     ~RedisServer();
 
