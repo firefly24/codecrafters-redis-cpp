@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -205,6 +206,16 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
         //std::vector<std::string> result = handleLeftRange(cmd);
         return MsgType::ARRAY;
     }
+    if(cmd[0] == "LLEN")
+    {
+        std::size_t list_size = 0;
+        
+        if (cmd.size() >= 2)
+            list_size = global_store.getListSize(cmd[1]);
+
+        response = std::to_string(list_size);
+        return MsgType::INTEGER;
+    }
     response = "";
     return MsgType::INVALID;
 }
@@ -393,4 +404,18 @@ std::vector<std::string> RedisServer::SharedStore::getListRange(const std::strin
         return {};
 
     return std::vector(list.begin()+start, list.begin()+ stop+1);
+}
+
+
+std::size_t RedisServer::SharedStore::getListSize(const std::string& listname)
+{
+    if(listname.empty())
+        return 0;
+
+    auto it = list_store.find(listname);
+
+    if(it == list_store.end()) 
+        return 0;
+
+    return it->second.size();
 }

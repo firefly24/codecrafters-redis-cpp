@@ -58,6 +58,7 @@ private:
         int list_push_front(const std::string& list,const std::vector<std::string>& element);
         int list_push_back(const std::string& list,const std::vector<std::string>& element);
         std::vector<std::string> getListRange(const std::string& list_name,int start,int stop);
+        std::size_t getListSize(const std::string& listname);
 
     };
 
