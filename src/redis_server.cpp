@@ -203,18 +203,22 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
     }
     if(cmd[0] == "LRANGE")
     {
-        //std::vector<std::string> result = handleLeftRange(cmd);
         return MsgType::ARRAY;
     }
     if(cmd[0] == "LLEN")
     {
         std::size_t list_size = 0;
-        
+
         if (cmd.size() >= 2)
             list_size = global_store.getListSize(cmd[1]);
 
         response = std::to_string(list_size);
         return MsgType::INTEGER;
+    }
+    if(cmd[0] == "LPOP")
+    {
+        if(cmd.size() == 2)
+            return handleListPop(cmd[1],response,true);
     }
     response = "";
     return MsgType::INVALID;
@@ -283,6 +287,18 @@ MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::str
     }
     response = std::to_string(list_size);
     return MsgType::INTEGER;
+}
+
+MsgType RedisServer::handleListPop(const std::string& listname, std::string& element,bool front)
+{
+    if(front)
+    {
+        if( global_store.list_pop_front(listname,element) )
+        {
+            return MsgType::BULK;
+        }
+    }
+    return MsgType::EMPTY;
 }
 
 std::vector<std::string> RedisServer::handleLeftRange(const std::vector<std::string>& cmd)
@@ -418,4 +434,25 @@ std::size_t RedisServer::SharedStore::getListSize(const std::string& listname)
         return 0;
 
     return it->second.size();
+}
+
+bool RedisServer::SharedStore::list_pop_front(const std::string& listname, std::string& element)
+{
+    if(listname.empty())
+        return false;
+
+    auto it = list_store.find(listname);
+
+    if(it == list_store.end())
+        return false;
+
+    std::vector<std::string>& list = it->second;
+
+    if(list.empty())
+        return false;
+
+    element = list.front();
+    list.erase(list.begin());
+
+    return true;
 }

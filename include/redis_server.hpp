@@ -55,8 +55,9 @@ private:
         void setValue(const std::string&key,const std::string& value, int expiry = -1, ExpiryTimeUnit unit = ExpiryTimeUnit::MILLISECONDS);
 
         // for lists
-        int list_push_front(const std::string& list,const std::vector<std::string>& element);
-        int list_push_back(const std::string& list,const std::vector<std::string>& element);
+        int list_push_front(const std::string& listname,const std::vector<std::string>& element);
+        int list_push_back(const std::string& listname,const std::vector<std::string>& element);
+        bool list_pop_front(const std::string& listname,std::string& element);
         std::vector<std::string> getListRange(const std::string& list_name,int start,int stop);
         std::size_t getListSize(const std::string& listname);
 
@@ -73,6 +74,7 @@ private:
     std::vector<std::string> handleLeftRange(const std::vector<std::string>& cmd);
     MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
     MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front);
+    MsgType handleListPop(const std::string& listname, std::string& element,bool front);
 
 public:
 
