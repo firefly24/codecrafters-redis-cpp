@@ -216,9 +216,19 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
         return MsgType::INTEGER;
     }
     if(cmd[0] == "LPOP")
-    {
+    { 
+        if(cmd.size() == 3)
+            return MsgType::ARRAY;
         if(cmd.size() == 2)
-            return handleListPop(cmd[1],response,true);
+        {
+            std::vector<std::string> reply = handleListPop(cmd);
+            if(!reply.empty())
+            {
+                response = std::move(reply[0]);
+                return MsgType::BULK;
+            }
+        }
+        return MsgType::EMPTY;
     }
     response = "";
     return MsgType::INVALID;
@@ -233,6 +243,8 @@ std::vector<std::string> RedisServer::processCommandComplex(const std::vector<st
     {
         return handleLeftRange(cmd);
     }
+    if(cmd[0] == "LPOP")
+        return handleListPop(cmd);
     return {};
 }
 
@@ -289,16 +301,20 @@ MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::str
     return MsgType::INTEGER;
 }
 
-MsgType RedisServer::handleListPop(const std::string& listname, std::string& element,bool front)
+std::vector<std::string> RedisServer::handleListPop(const std::vector<std::string>& cmd)
 {
-    if(front)
+    if(cmd.empty() || cmd.size() < 2)
+        return {};
+
+    int count =1;
+    if( (cmd[0] == "LPOP") )
     {
-        if( global_store.list_pop_front(listname,element) )
-        {
-            return MsgType::BULK;
-        }
+        if(cmd.size() == 3)
+            count = std::stoi(cmd[2]);
+
+        return global_store.list_pop_front(cmd[1],count);
     }
-    return MsgType::EMPTY;
+    return {};
 }
 
 std::vector<std::string> RedisServer::handleLeftRange(const std::vector<std::string>& cmd)
@@ -436,23 +452,29 @@ std::size_t RedisServer::SharedStore::getListSize(const std::string& listname)
     return it->second.size();
 }
 
-bool RedisServer::SharedStore::list_pop_front(const std::string& listname, std::string& element)
+std::vector<std::string> RedisServer::SharedStore::list_pop_front(const std::string& listname, int count)
 {
     if(listname.empty())
-        return false;
+        return {};
 
     auto it = list_store.find(listname);
 
     if(it == list_store.end())
-        return false;
+        return {};
 
     std::vector<std::string>& list = it->second;
 
     if(list.empty())
-        return false;
+        return {};
 
-    element = list.front();
-    list.erase(list.begin());
+    std::vector<std::string> elements;
 
-    return true;
+    while( count && !list.empty())
+    {
+        elements.push_back(list.front());
+        list.erase(list.begin());
+        count--;
+    }
+
+    return elements;
 }
