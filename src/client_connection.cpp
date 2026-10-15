@@ -57,10 +57,7 @@ bool ClientConnection::serveRequest()
         if(encoding_type == MsgType::ARRAY)
         {
             std::vector<std::string> reply = server_.processCommandComplex(cmd);
-            //if(reply.empty())
-            //    response = RESPEncoder::encodeMsg("",MsgType::BULK);
-            //else
-                response = RESPEncoder::encodeMsgArray(reply);
+            response = RESPEncoder::encodeMsgArray(reply);
         }
         else 
         {

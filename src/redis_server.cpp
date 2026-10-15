@@ -349,10 +349,16 @@ std::vector<std::string> RedisServer::SharedStore::getListRange(const std::strin
     auto it = list_store.find(list_name);
     if( it == list_store.end() )
         return {};
-
+    
     const std::vector<std::string>& list = it->second;
 
     int list_size = (int)list.size();
+
+    if( start<0 )
+        start = std::max(0,start+list_size);
+    if( stop<0 )
+        stop = std::max(0,start+list_size);
+
     stop = std::min(stop, list_size - 1) ;
 
     if( (start >= list_size) )
