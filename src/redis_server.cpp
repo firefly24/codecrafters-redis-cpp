@@ -357,7 +357,7 @@ std::vector<std::string> RedisServer::SharedStore::getListRange(const std::strin
     if( start<0 )
         start = std::max(0,start+list_size);
     if( stop<0 )
-        stop = std::max(0,start+list_size);
+        stop = std::max(0,stop+list_size);
 
     stop = std::min(stop, list_size - 1) ;
 
