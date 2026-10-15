@@ -189,7 +189,11 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
     }
     if(cmd[0] == "RPUSH")
     {
-        return handleListPush(cmd,response);
+        return handleListPush(cmd,response,false);
+    }
+    if(cmd[0] == "LPUSH")
+    {
+        return handleListPush(cmd, response, true);
     }
 
     if(cmd[0] == "SET")
@@ -251,12 +255,15 @@ MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::stri
     return MsgType::INVALID;
 }
 
-MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::string& response)
+MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front)
 {
     int list_size = -1;
-    if ( (cmd.size() >= 3) && (cmd[0] == "RPUSH") )
+    if ( (cmd.size() >= 3) )
     {
-        list_size = global_store.list_push(cmd[1], cmd);
+        if( (cmd[0] == "RPUSH") && (!front) )
+            list_size = global_store.list_push_back(cmd[1], cmd);
+        if( (cmd[0]=="LPUSH") && front )
+            list_size = global_store.list_push_front(cmd[1], cmd);
     }
     if(list_size == -1)
     {
@@ -324,7 +331,7 @@ void RedisServer::SharedStore::setValue(const std::string&key,const std::string&
 
 
 // Takes full command vector as input, and consumes all the list elements
-int RedisServer::SharedStore::list_push(const std::string& list_name,const std::vector<std::string>& elements)
+int RedisServer::SharedStore::list_push_back(const std::string& list_name,const std::vector<std::string>& elements)
 {
     if(list_name.empty())
         return -1;
@@ -336,6 +343,24 @@ int RedisServer::SharedStore::list_push(const std::string& list_name,const std::
     while(idx < elements.size())
     {
         list.push_back(std::move(elements[idx++]));
+    }
+
+    return list.size();
+}
+
+// Takes full command vector as input, and consumes all the list elements
+int RedisServer::SharedStore::list_push_front(const std::string& list_name,const std::vector<std::string>& elements)
+{
+    if(list_name.empty())
+        return -1;
+
+    std::vector<std::string>& list = list_store[list_name];
+
+    // permit empty element string for now, unless specified later
+    int idx = 2;
+    while(idx < elements.size())
+    {
+        list.insert(list.begin(),std::move(elements[idx++]));
     }
 
     return list.size();
