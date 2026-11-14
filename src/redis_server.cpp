@@ -1,4 +1,5 @@
 #include <chrono>
+#include <climits>
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -10,6 +11,7 @@
 #include <sys/fcntl.h>
 #include <sys/poll.h>
 #include <vector>
+#include <algorithm>
 
 #include "redis_server.hpp"
 #include "client_connection.hpp"
@@ -88,19 +90,37 @@ bool RedisServer::connectNonBlockingClient()
     return true;
 }
 
-void RedisServer::generateValidFds(std::vector<pollfd>& poll_fds)
+int RedisServer::generateValidFds(std::vector<pollfd>& poll_fds)
 {
     poll_fds.clear();   
     poll_fds.push_back({server_fd,POLLIN, 0});
+
+    int shortest_timeout = INT_MAX;
 
     // remove invalid/ closed client connections 
     //std::erase_if(clients,[](const std::unique_ptr<ClientConnection>& conn){return !conn->isValid();});
     std::erase_if(clients,[](const std::shared_ptr<ClientConnection>& conn){return !conn->isValid();});
     for (const auto& client_connection: clients)
     {
-        short events = (client_connection->isBlocked()?0:POLLIN);
+        short events;
+        if(client_connection->isBlocked())
+        {
+            events = 0;
+        }
+        else
+            events = POLLIN;
+
+        int timeout = client_connection->getTimeoutMs();
+
+        if( timeout != -1)
+        {
+            shortest_timeout = std::min(timeout,shortest_timeout);
+        }
+        
         poll_fds.push_back({client_connection->getFd(),events,0});
     }
+
+    return (shortest_timeout==INT_MAX)?-1:shortest_timeout;
 }
 
 void RedisServer::runEventLoop()
@@ -117,9 +137,9 @@ void RedisServer::runEventLoop()
     while(true)
     {
         std::vector<pollfd> poll_fds;
-        generateValidFds(poll_fds);
+        int timeout = generateValidFds(poll_fds);
 
-        int ready_count = poll(poll_fds.data(), poll_fds.size(), -1);
+        int ready_count = poll(poll_fds.data(), poll_fds.size(), timeout);
         if(ready_count < 0)
         {
             // TODO: handle interrupted by a signal case in future
@@ -260,7 +280,7 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
                 response.type = MsgType::INVALID;
             else if(response.result_array.size() == 1)
             {
-                response.result = response.result_array[0];
+                response.result = cmd[2];
                 response.type = MsgType::DEFER;
             }
             else if (response.result_array.size() > 1)

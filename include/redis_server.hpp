@@ -97,7 +97,7 @@ public:
 
     bool connectNonBlockingClient();
 
-    void generateValidFds(std::vector<pollfd>& poll_fds);
+    int generateValidFds(std::vector<pollfd>& poll_fds);
 
     void runEventLoop();
 

@@ -1,8 +1,12 @@
 #pragma once
 
 #include "message_types.hpp"
+#include <optional>
+#include <ratio>
 #include <string>
 #include <memory>
+#include <chrono>
+#include <optional>
 
 class RedisServer;
 
@@ -13,6 +17,7 @@ private:
     int client_fd;
     RedisServer &server_;
     bool is_blocked;
+    std::optional<std::chrono::steady_clock::time_point> block_deadline;
 public: 
     
     explicit ClientConnection(int fd, RedisServer& server);
@@ -30,6 +35,10 @@ public:
     bool isBlocked() const;
 
     void unblock();
+
+    void blockWithTimeout(int timeout_ms = -1);
+
+    int getTimeoutMs();
 
     int getFd() const;
     ~ClientConnection();

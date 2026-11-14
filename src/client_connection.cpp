@@ -1,4 +1,5 @@
 #include <cerrno>
+#include <chrono>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <iostream>
@@ -60,9 +61,17 @@ bool ClientConnection::serveRequest()
         if(response.type == MsgType::DEFER)
         {
             //std::cerr << "serveRequest: setting client blocked" << std::endl;
-            is_blocked = true;
             auto self = shared_from_this();
-            server_.requestWaiterRegistration(response.result,self);
+            server_.requestWaiterRegistration(response.result_array[0],self);
+            
+            if(cmd[2] != "0")
+            {
+                double timeout_s = std::stod(response.result);
+                blockWithTimeout(timeout_s*1000);
+            }
+            else {
+                blockWithTimeout(-1);
+            }
             return true;
         }
         
@@ -118,9 +127,36 @@ bool ClientConnection::isBlocked() const
     return is_blocked;
 }
 
+void ClientConnection::blockWithTimeout(int timeout_ms)
+{
+    if(timeout_ms != -1)
+    {
+        block_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    }
+    is_blocked = true;
+}
+
 void ClientConnection::unblock()
 {
     is_blocked = false;
+    block_deadline.reset();
+}
+
+int ClientConnection::getTimeoutMs()
+{
+    // No valid timeout exists
+    if(!block_deadline)
+        return -1;
+
+    auto now = std::chrono::steady_clock::now();
+
+    auto countdown_ms = *block_deadline - now;
+
+    // timeout has already passed 
+    if(countdown_ms <= std::chrono::steady_clock::duration::zero())
+        return 0;
+    
+    return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(countdown_ms).count());
 }
 
 ClientConnection::~ClientConnection()
