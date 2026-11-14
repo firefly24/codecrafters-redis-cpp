@@ -81,7 +81,8 @@ bool RedisServer::connectNonBlockingClient()
         return false;
     }
     
-    clients.push_back(std::make_unique<ClientConnection>(client_fd, *this));
+    //clients.push_back(std::make_unique<ClientConnection>(client_fd, *this));
+    clients.emplace_back(std::make_shared<ClientConnection>(client_fd, *this));
 
     std::cout << "Client connected\n";
     return true;
@@ -93,10 +94,12 @@ void RedisServer::generateValidFds(std::vector<pollfd>& poll_fds)
     poll_fds.push_back({server_fd,POLLIN, 0});
 
     // remove invalid/ closed client connections 
-    std::erase_if(clients,[](const std::unique_ptr<ClientConnection>& conn){return !conn->isValid();});
+    //std::erase_if(clients,[](const std::unique_ptr<ClientConnection>& conn){return !conn->isValid();});
+    std::erase_if(clients,[](const std::shared_ptr<ClientConnection>& conn){return !conn->isValid();});
     for (const auto& client_connection: clients)
     {
-        poll_fds.push_back({client_connection->getFd(), POLLIN,0});
+        short events = (client_connection->isBlocked()?0:POLLIN);
+        poll_fds.push_back({client_connection->getFd(),events,0});
     }
 }
 
@@ -144,10 +147,12 @@ void RedisServer::runEventLoop()
 
         for(std::size_t i=1; i<poll_fds.size(); i++)
         {
-            if(poll_fds[i].revents & POLLIN)
+            //std::cerr << "POLLIN: blocked=" << clients[i-1]->isBlocked() << std::endl;
+            if( (!clients[i-1]->isBlocked()) && (poll_fds[i].revents & POLLIN) )
             {
                 if(!clients[i-1]->serveRequest())
                     clients[i-1]->closeConnection();
+
             }
             if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL) ) 
                 clients[i-1]->closeConnection();
@@ -155,7 +160,116 @@ void RedisServer::runEventLoop()
     }
 }
 
+CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
+{
+    CommandResult response;
 
+    if(cmd.empty())
+    {
+        response.type = MsgType::EMPTY;
+        return response;
+    }
+
+    // std::cout << cmd[0] << std::endl;
+
+    if(cmd[0] == "PING")
+    {
+        response.result = "PONG";
+        response.type = MsgType::SIMPLE;
+    }
+    if(cmd[0] == "ECHO")
+    {
+        if(cmd.size() == 2)
+        {
+            response.result = cmd[1];
+            response.type = MsgType::BULK;
+        }
+    }
+    if(cmd[0] == "GET")
+    {
+        if(cmd.size() == 2)
+        {
+            if(global_store.getValue(cmd[1],response.result))
+                response.type = MsgType::BULK;
+            else
+                response.type =  MsgType::EMPTY;
+        }
+    }
+    if(cmd[0] == "RPUSH")
+    {
+        response.type =  handleListPush(cmd,response.result,false);
+    }
+    if(cmd[0] == "LPUSH")
+    {
+        response.type = handleListPush(cmd, response.result, true);
+    }
+
+    if(cmd[0] == "SET")
+    {
+        response.type = handleSetKey(cmd,response.result);
+    }
+    if(cmd[0] == "LRANGE")
+    {
+        response.result_array= handleLeftRange(cmd);
+        response.type =  MsgType::ARRAY;
+    }
+    if(cmd[0] == "LLEN")
+    {
+        std::size_t list_size = 0;
+
+        if (cmd.size() >= 2)
+            list_size = global_store.getListSize(cmd[1]);
+
+        response.result = std::to_string(list_size);
+        response.type = MsgType::INTEGER;
+    }
+    if(cmd[0] == "LPOP")
+    { 
+        response.type = MsgType::EMPTY;
+
+        if(cmd.size() >= 2)
+        {
+            response.result_array = handleListPop(cmd,false);
+
+            if(cmd.size() == 2)
+            {
+                if(response.result_array.size())
+                {
+                    response.result = response.result_array[0];
+                    response.type = MsgType::BULK;
+                }
+            }
+            else
+            {
+                response.type = MsgType::ARRAY;
+            }
+        }
+    }
+    if(cmd[0] == "BLPOP")
+    {
+        // Since the server execution is single threaded for now,
+        // this operation just returns if an element is available for immediate pop without actually popping
+        // The actual pop happens in the second call - ProcessCommandComplex, 
+        // and no other client modifies the list inbetween for single threaded process
+        
+        if(cmd.size() == 3)
+        {
+            response.result_array = handleListPop(cmd,true);
+
+            if (!response.result_array.size())
+                response.type = MsgType::INVALID;
+            else if(response.result_array.size() == 1)
+            {
+                response.result = response.result_array[0];
+                response.type = MsgType::DEFER;
+            }
+            else if (response.result_array.size() > 1)
+                response.type = MsgType::ARRAY;
+        }
+    }
+    return response;
+}
+/*
 MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::string& response)
 {
     if(cmd.empty())
@@ -230,6 +344,26 @@ MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::str
         }
         return MsgType::EMPTY;
     }
+    if(cmd[0] == "BLPOP")
+    {
+        // Since the server execution is single threaded for now,
+        // this operation just returns if an element is available for immediate pop without actually popping
+        // The actual pop happens in the second call - ProcessCommandComplex, 
+        // and no other client modifies the list inbetween for single threaded process
+        
+        if(cmd.size() == 3)
+        {
+            int list_size = global_store.getListSize(cmd[1]);
+            if(list_size)
+                return MsgType::ARRAY;
+            else
+                return MsgType::DEFER;
+    
+        }
+        
+        //return MsgType::ARRAY;
+    }
+
     response = "";
     return MsgType::INVALID;
 }
@@ -245,8 +379,15 @@ std::vector<std::string> RedisServer::processCommandComplex(const std::vector<st
     }
     if(cmd[0] == "LPOP")
         return handleListPop(cmd);
+
+    if( (cmd[0] == "BLPOP") && (cmd.size() == 3))
+    {
+        return handleListPop(cmd);
+        //return reply;
+    }
     return {};
 }
+*/
 
 MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::string& response)
 {
@@ -301,7 +442,7 @@ MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::str
     return MsgType::INTEGER;
 }
 
-std::vector<std::string> RedisServer::handleListPop(const std::vector<std::string>& cmd)
+std::vector<std::string> RedisServer::handleListPop(const std::vector<std::string>& cmd,bool is_blocking)
 {
     if(cmd.empty() || cmd.size() < 2)
         return {};
@@ -311,8 +452,16 @@ std::vector<std::string> RedisServer::handleListPop(const std::vector<std::strin
     {
         if(cmd.size() == 3)
             count = std::stoi(cmd[2]);
-
-        return global_store.list_pop_front(cmd[1],count);
+        
+        return global_store.list_pop_front(cmd[1],count,false);
+        
+    }
+    if(cmd[0] == "BLPOP")
+    {
+        if(cmd.size() == 3)
+        {
+            return global_store.list_pop_front(cmd[1],1,true);
+        }
     }
     return {};
 }
@@ -327,6 +476,34 @@ std::vector<std::string> RedisServer::handleLeftRange(const std::vector<std::str
         return global_store.getListRange(cmd[1],start,stop);
     }
     return {};
+}
+
+void RedisServer::requestWaiterRegistration(const std::string& listname,BlockedClientRef client)
+{
+    global_store.registerWaitingClient(listname, client);
+}
+
+std::shared_ptr<ClientConnection> RedisServer::getNextWaitingClient(const std::string& listname)
+{
+    return global_store.getNextBlockedRef(listname);
+}
+
+void RedisServer::wakeBlockedClient(std::string& listname)
+{
+    std::shared_ptr<ClientConnection> client = getNextWaitingClient(listname);
+    
+    if(!client)
+        return;
+
+    CommandResult response;
+    // trigger pop 
+    response.result_array = global_store.list_pop_front(listname,1,true);
+    response.type = MsgType::ARRAY;
+
+    std::string reply = client->encodeResponse(response);
+    client->sendResponse(reply);
+    
+    client->unblock();
 }
 
 RedisServer::~RedisServer()
@@ -452,29 +629,55 @@ std::size_t RedisServer::SharedStore::getListSize(const std::string& listname)
     return it->second.size();
 }
 
-std::vector<std::string> RedisServer::SharedStore::list_pop_front(const std::string& listname, int count)
+std::vector<std::string> RedisServer::SharedStore::list_pop_front(const std::string& listname, int count, bool isblocking)
 {
     if(listname.empty())
         return {};
 
+    std::vector<std::string> elements = {};
+
+    if(isblocking)
+        elements.push_back(listname);
+
     auto it = list_store.find(listname);
 
-    if(it == list_store.end())
-        return {};
-
-    std::vector<std::string>& list = it->second;
-
-    if(list.empty())
-        return {};
-
-    std::vector<std::string> elements;
-
-    while( count && !list.empty())
+    if(it != list_store.end())
     {
-        elements.push_back(list.front());
-        list.erase(list.begin());
-        count--;
-    }
+        std::vector<std::string>& list = it->second;
 
+        while( count && !list.empty())
+        {
+            elements.push_back(std::move(list.front()));
+            list.erase(list.begin());
+            count--;
+        }
+    }
     return elements;
+}
+
+
+void RedisServer::SharedStore::registerWaitingClient(const std::string& listname, BlockedClientRef client)
+{
+    if(listname.empty())
+        return;
+
+    waiting_clients[listname].push(std::move(client));
+}
+
+std::shared_ptr<ClientConnection> RedisServer::SharedStore::getNextBlockedRef(const std::string& listname)
+{
+    auto it = waiting_clients.find(listname);
+    if(it != waiting_clients.end())
+    {
+        std::queue<BlockedClientRef>& waiters = it->second;
+        while(!waiters.empty())
+        {
+            auto client = waiters.front().lock();
+            waiters.pop();
+
+            if(client)
+                return client;
+        }
+    }
+    return nullptr;
 }

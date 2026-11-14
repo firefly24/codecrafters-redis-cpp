@@ -9,7 +9,9 @@
 #include "resp_encoder.hpp"
 #include "resp_parser.hpp"
 
-ClientConnection::ClientConnection(int fd, RedisServer& server): client_fd(fd), server_(server)
+ClientConnection::ClientConnection(int fd, RedisServer& server): client_fd(fd), 
+                                                                 server_(server),
+                                                                 is_blocked(false)
 {
 
 }
@@ -50,25 +52,51 @@ bool ClientConnection::serveRequest()
         //for(const auto& word : cmd)
         //    std::cout << word << "*" << std::endl;
 
-        std::string result ="";
-        std::string response;
-        MsgType encoding_type = server_.processCommand(cmd,result);
+        std::string reply ="";
+        //std::string response;
+        //MsgType encoding_type = server_.processCommand(cmd,result);
+        CommandResult response = server_.processCommand(cmd);
 
-        if(encoding_type == MsgType::ARRAY)
+        if(response.type == MsgType::DEFER)
         {
-            std::vector<std::string> reply = server_.processCommandComplex(cmd);
-            response = RESPEncoder::encodeMsgArray(reply);
+            //std::cerr << "serveRequest: setting client blocked" << std::endl;
+            is_blocked = true;
+            auto self = shared_from_this();
+            server_.requestWaiterRegistration(response.result,self);
+            return true;
         }
-        else 
-        {
-            response = RESPEncoder::encodeMsg(result, encoding_type);
-        }
+        
+        reply = encodeResponse(response);
 
-        ssize_t sent = send(client_fd,response.data(), response.size(), 0);
-        if(sent < 0)
-        {
-            std::cerr << "Send failed" << std::endl;
-        }
+        if(!sendResponse(reply))
+            return false;
+
+        if(cmd.size() && (cmd[0]=="LPUSH" || cmd[0]=="RPUSH"))
+            server_.wakeBlockedClient(cmd[1]);
+    }
+    return true;
+}
+
+std::string ClientConnection::encodeResponse(CommandResult& response)
+{
+    if(response.type == MsgType::ARRAY)
+    {
+        return RESPEncoder::encodeMsgArray(response.result_array);
+    }
+    else 
+    {
+        return RESPEncoder::encodeMsg(response.result, response.type);
+    }
+}
+
+bool ClientConnection::sendResponse(const std::string& response)
+{
+    ssize_t sent = send(client_fd,response.data(), response.size(), 0);
+    if(sent < 0)
+    {
+        std::cerr << "Send failed" << std::endl;
+        //return false;
+        // right now we don't know what to do for send failures, retry or close connection
     }
     return true;
 }
@@ -83,6 +111,16 @@ void ClientConnection::closeConnection()
 bool ClientConnection::isValid() const
 {
     return (client_fd != -1);
+}
+
+bool ClientConnection::isBlocked() const
+{
+    return is_blocked;
+}
+
+void ClientConnection::unblock()
+{
+    is_blocked = false;
 }
 
 ClientConnection::~ClientConnection()

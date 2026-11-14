@@ -1,0 +1,114 @@
+#pragma once
+
+#include <chrono>
+#include <cstdint>
+#include <cstdlib>
+#include <netinet/in.h>
+#include <cstring>
+#include <sys/poll.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <vector>
+#include <memory>
+#include <unordered_map>
+#include <queue>
+
+#include "client_connection.hpp"
+#include "message_types.hpp"
+
+#define PORTNO 6379
+
+enum class ExpiryTimeUnit
+{
+    MILLISECONDS,
+    SECONDS
+};
+
+struct PendingClient
+{
+    std::size_t idx;
+    uint64_t conn_id;
+    PendingClient(std::size_t client_idx, uint64_t connection_id):idx(client_idx), conn_id(connection_id)
+    {}
+};
+
+class RedisServer
+{
+private:
+
+    class SharedStore
+    {
+    private:
+
+        struct KeyRecord
+        {
+            std::string value;
+            std::optional<std::chrono::steady_clock::time_point> expiry;
+        };
+        std::unordered_map<std::string,KeyRecord> kv_store;
+        std::unordered_map<std::string,std::vector<std::string>> list_store;
+        std::unordered_map<std::string,std::queue<PendingClient>> waiting_clients;
+    public:
+        SharedStore() = default;
+        // delete copy
+        SharedStore& operator=(const SharedStore&) = delete;
+        SharedStore(const SharedStore&) = delete;
+
+        //delete move
+        SharedStore& operator=(SharedStore&&) = delete;
+        SharedStore(SharedStore&&) = delete;
+
+        // For KV store
+        bool getValue(const std::string& key, std::string& value);
+        void setValue(const std::string&key,const std::string& value, int expiry = -1, ExpiryTimeUnit unit = ExpiryTimeUnit::MILLISECONDS);
+
+        // for lists
+        int list_push_front(const std::string& listname,const std::vector<std::string>& element);
+        int list_push_back(const std::string& listname,const std::vector<std::string>& element);
+        bool list_pop_front(const std::string& listname,std::string& response);
+        std::vector<std::string> list_pop_front_multi(const std::string& listname,int count =1,bool append_listname = false);
+        std::vector<std::string> getListRange(const std::string& list_name,int start,int stop);
+        std::size_t getListSize(const std::string& listname);
+
+        void registerWaitingClient(const std::string listname, std::size_t client_idx, uint64_t connection_id);
+    };
+
+    int server_fd{-1};
+    int port{PORTNO};
+    bool is_polling{false};
+    struct sockaddr_in server_addr{};
+    struct sockaddr_in client_addr{};
+    std::vector<std::unique_ptr<ClientConnection>> clients;
+    SharedStore global_store;
+
+    std::vector<std::string> handleLeftRange(const std::vector<std::string>& cmd);
+    std::vector<std::string> handleListPop(const std::vector<std::string>& cmd);
+    MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
+    MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front);
+    
+
+public:
+
+    explicit RedisServer();
+
+    bool launchServer();
+
+    bool connectNonBlockingClient();
+
+    void generateValidFds(std::vector<pollfd>& poll_fds);
+
+    void runEventLoop();
+
+    MsgType processCommand(const std::vector<std::string>& cmd, std::string& response);
+
+    std::vector<std::string> processCommandComplex(const std::vector<std::string>& cmd);
+
+    ~RedisServer();
+
+    // Delete copy 
+    RedisServer& operator=(const RedisServer&) = delete;
+    RedisServer(const RedisServer&) = delete;
+};
