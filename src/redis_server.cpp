@@ -173,12 +173,11 @@ void RedisServer::runEventLoop()
             {
                 if(clients[i-1]->getTimeoutMs() == 0)
                 {
-                    //clients[i-1]->createAndSendResponse({}, MsgType::NULL_ARRAY);
                     clients[i-1]->handleResponse(NULL_RESPONSE);
                     clients[i-1]->unblock();
                 }
             }
-            if( (!clients[i-1]->isBlocked()) && (poll_fds[i].revents & POLLIN) )
+            else if( (!clients[i-1]->isBlocked()) && (poll_fds[i].revents & POLLIN) )
             {
                 if(!clients[i-1]->serveRequest())
                     clients[i-1]->closeConnection();

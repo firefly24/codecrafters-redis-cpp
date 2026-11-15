@@ -78,15 +78,6 @@ void ClientConnection::deferResponse(const CommandResult& response)
     }
 }
 
-bool ClientConnection::createAndSendResponse(const std::vector<std::string>& msg,MsgType type)
-{
-    CommandResult response;
-    response.type = type;
-    response.result_array = msg;
-
-    return handleResponse(response);
-}
-
 bool ClientConnection::handleResponse(const CommandResult& response)
 {
     if(response.type == MsgType::DEFER)

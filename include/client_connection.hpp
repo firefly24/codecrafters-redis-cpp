@@ -23,15 +23,11 @@ public:
     explicit ClientConnection(int fd, RedisServer& server);
 
     bool serveRequest();
-
-    bool createAndSendResponse(const std::vector<std::string>& response,MsgType);
-
-    bool sendResponse(const std::string& response);
-
-    void deferResponse(const CommandResult& response);
     bool handleResponse(const CommandResult& response);
 
+    void deferResponse(const CommandResult& response);
     std::string encodeResponse(const CommandResult&);
+    bool sendResponse(const std::string& response);
 
     void closeConnection();
 
