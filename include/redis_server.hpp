@@ -88,7 +88,8 @@ private:
     std::vector<std::string> handleLeftRange(const std::string& listname,int start, int stop);
     std::vector<std::string> handleListPop(const std::vector<std::string>& cmd, bool is_blocking = false);
     MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
-    MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front);
+    //MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front);
+    CommandResult handleListPush(bool front,const std::vector<std::string>& cmd);
 
 public:
 

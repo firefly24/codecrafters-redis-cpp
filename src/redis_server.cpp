@@ -236,13 +236,13 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         }
         case Command::RPUSH:
         {
-            response.type =  handleListPush(cmd,response.result,false);
-            break;
+            return handleListPush(false,cmd);
+            //break;
         }
         case Command::LPUSH:
         {
-            response.type = handleListPush(cmd, response.result, true);
-            break;
+            return handleListPush(true,cmd);
+            //break;
         }
         case Command::LRANGE:
         {
@@ -358,6 +358,26 @@ MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::stri
     return MsgType::INVALID;
 }
 
+CommandResult RedisServer::handleListPush(bool front,const std::vector<std::string>& cmd)
+{
+    CommandResult response;
+    int list_size = -1;
+    if ( (cmd.size() >= 3) )
+    {
+        if( (front))
+            list_size = global_store.list_push_front(cmd[1], cmd);
+        else
+            list_size = global_store.list_push_back(cmd[1], cmd);
+    }
+    if(list_size != -1)
+    {
+        response.result = std::to_string(list_size);
+        response.type = MsgType::INTEGER;
+    }
+    return response;
+}
+
+/*
 MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front)
 {
     int list_size = -1;
@@ -376,6 +396,7 @@ MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::str
     response = std::to_string(list_size);
     return MsgType::INTEGER;
 }
+*/
 
 std::vector<std::string> RedisServer::handleListPop(const std::vector<std::string>& cmd,bool is_blocking)
 {
