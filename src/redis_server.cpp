@@ -173,7 +173,8 @@ void RedisServer::runEventLoop()
             {
                 if(clients[i-1]->getTimeoutMs() == 0)
                 {
-                    clients[i-1]->createAndSendResponse({}, MsgType::NULL_ARRAY);
+                    //clients[i-1]->createAndSendResponse({}, MsgType::NULL_ARRAY);
+                    clients[i-1]->handleResponse(NULL_RESPONSE);
                     clients[i-1]->unblock();
                 }
             }
@@ -417,10 +418,9 @@ void RedisServer::wakeBlockedClient(std::string& listname)
     if(!client)
         return;
 
-    auto result_array = global_store.list_pop_front(listname,1,true);
-
-    client->createAndSendResponse(result_array,MsgType::ARRAY);
-    
+    //auto result_array = global_store.list_pop_front(listname,1,true);
+    CommandResult response = handleListPop(listname, true);
+    client->handleResponse(response);    
     client->unblock();
 }
 

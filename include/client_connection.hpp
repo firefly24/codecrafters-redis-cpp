@@ -29,8 +29,9 @@ public:
     bool sendResponse(const std::string& response);
 
     void deferResponse(const CommandResult& response);
+    bool handleResponse(const CommandResult& response);
 
-    std::string encodeResponse(CommandResult&);
+    std::string encodeResponse(const CommandResult&);
 
     void closeConnection();
 

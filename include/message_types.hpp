@@ -22,4 +22,8 @@ struct CommandResult
 
     CommandResult(): type(MsgType::INVALID),result("")
     {}
+    CommandResult(MsgType msg_type): type(msg_type), result("")
+    {}
 };
+
+const static CommandResult NULL_RESPONSE(MsgType::NULL_ARRAY);

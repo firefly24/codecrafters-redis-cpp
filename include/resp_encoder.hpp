@@ -16,7 +16,7 @@ class RESPEncoder
     
    RESPEncoder() = delete;
    static std::string encodeMsg(std::string msg, MsgType encode_type);
-   static std::string encodeMsgArray(std::vector<std::string>& array);
+   static std::string encodeMsgArray(const std::vector<std::string>& array);
 
     // Delete copy 
     //RESPEncoder& operator=(const RESPEncoder&) = delete;

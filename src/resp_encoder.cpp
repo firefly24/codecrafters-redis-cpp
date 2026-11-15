@@ -37,7 +37,7 @@ std::string RESPEncoder::encodeMsg(std::string msg, MsgType encode_type)
     return "";
 }
 
-std::string RESPEncoder::encodeMsgArray(std::vector<std::string>& array)
+std::string RESPEncoder::encodeMsgArray(const std::vector<std::string>& array)
 {
     std::string response = "*" + std::to_string(array.size()) + separator;
     

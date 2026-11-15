@@ -50,21 +50,9 @@ bool ClientConnection::serveRequest()
         // TODO: incomplete send/receive not supported yet
         std::vector<std::string> cmd = RESPParser::parse(std::string{buffer,(std::size_t)received});
 
-        //for(const auto& word : cmd)
-        //    std::cout << word << "*" << std::endl;
-
-        std::string reply ="";
         CommandResult response = server_.processCommand(cmd);
 
-        if(response.type == MsgType::DEFER)
-        {
-            deferResponse(response);
-            return true;
-        }
-        
-        reply = encodeResponse(response);
-
-        if(!sendResponse(reply))
+        if(!handleResponse(response))
             return false;
 
         if(cmd.size() && (cmd[0]=="LPUSH" || cmd[0]=="RPUSH"))
@@ -82,7 +70,8 @@ void ClientConnection::deferResponse(const CommandResult& response)
     if(response.result != "0")
     {
         double timeout_s = std::stod(response.result);
-        blockWithTimeout(timeout_s*1000);
+        int timeout_ms = static_cast<int>(timeout_s*1000.0);
+        blockWithTimeout(timeout_ms);
     }
     else {
         blockWithTimeout(-1);
@@ -91,17 +80,25 @@ void ClientConnection::deferResponse(const CommandResult& response)
 
 bool ClientConnection::createAndSendResponse(const std::vector<std::string>& msg,MsgType type)
 {
-    std::string reply;
     CommandResult response;
     response.type = type;
     response.result_array = msg;
 
-    reply= encodeResponse(response);
+    return handleResponse(response);
+}
 
+bool ClientConnection::handleResponse(const CommandResult& response)
+{
+    if(response.type == MsgType::DEFER)
+    {
+        deferResponse(response);
+        return true;
+    }
+    std::string reply = encodeResponse(response);
     return sendResponse(reply);
 }
 
-std::string ClientConnection::encodeResponse(CommandResult& response)
+std::string ClientConnection::encodeResponse(const CommandResult& response)
 {
     if(response.type == MsgType::ARRAY)
     {
@@ -163,14 +160,13 @@ int ClientConnection::getTimeoutMs()
     if(!block_deadline)
         return -1;
 
-    auto now = std::chrono::steady_clock::now();
-
-    auto countdown_ms = *block_deadline - now;
+    auto countdown_ms = *block_deadline - std::chrono::steady_clock::now();
 
     // timeout has already passed 
     if(countdown_ms <= std::chrono::steady_clock::duration::zero())
         return 0;
     
+    // return milliseconds countdown to timeout
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(countdown_ms).count());
 }
 
