@@ -350,10 +350,11 @@ CommandResult RedisServer::handleListPush(bool front,const std::vector<std::stri
     int list_size = -1;
     if ( (cmd.size() >= 3) )
     {
+        std::vector<std::string> items(cmd.begin()+2,cmd.end());
         if(front)
-            list_size = global_store.list_push_front(cmd[1], cmd);
+            list_size = global_store.list_push_front(cmd[1], items);
         else
-            list_size = global_store.list_push_back(cmd[1], cmd);
+            list_size = global_store.list_push_back(cmd[1], items);
     }
     if(list_size != -1)
     {
@@ -476,7 +477,7 @@ int RedisServer::SharedStore::list_push_back(const std::string& list_name,const 
     std::vector<std::string>& list = list_store[list_name];
 
     // permit empty element string for now, unless specified later
-    int idx = 2;
+    int idx = 0;
     while(idx < elements.size())
     {
         list.push_back(std::move(elements[idx++]));
@@ -494,7 +495,7 @@ int RedisServer::SharedStore::list_push_front(const std::string& list_name,const
     std::vector<std::string>& list = list_store[list_name];
 
     // permit empty element string for now, unless specified later
-    int idx = 2;
+    int idx = 0;
     while(idx < elements.size())
     {
         list.insert(list.begin(),std::move(elements[idx++]));

@@ -28,6 +28,8 @@ public:
 
     bool sendResponse(const std::string& response);
 
+    void deferResponse(const CommandResult& response);
+
     std::string encodeResponse(CommandResult&);
 
     void closeConnection();

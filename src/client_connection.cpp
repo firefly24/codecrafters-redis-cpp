@@ -58,18 +58,7 @@ bool ClientConnection::serveRequest()
 
         if(response.type == MsgType::DEFER)
         {
-            //std::cerr << "serveRequest: setting client blocked" << std::endl;
-            auto self = shared_from_this();
-            server_.requestWaiterRegistration(response.result_array[0],self);
-            
-            if(cmd[2] != "0")
-            {
-                double timeout_s = std::stod(response.result);
-                blockWithTimeout(timeout_s*1000);
-            }
-            else {
-                blockWithTimeout(-1);
-            }
+            deferResponse(response);
             return true;
         }
         
@@ -82,6 +71,22 @@ bool ClientConnection::serveRequest()
             server_.wakeBlockedClient(cmd[1]);
     }
     return true;
+}
+
+void ClientConnection::deferResponse(const CommandResult& response)
+{
+    //std::cerr << "serveRequest: setting client blocked" << std::endl;
+    auto self = shared_from_this();
+    server_.requestWaiterRegistration(response.result_array[0],self);
+    
+    if(response.result != "0")
+    {
+        double timeout_s = std::stod(response.result);
+        blockWithTimeout(timeout_s*1000);
+    }
+    else {
+        blockWithTimeout(-1);
+    }
 }
 
 bool ClientConnection::createAndSendResponse(const std::vector<std::string>& msg,MsgType type)
