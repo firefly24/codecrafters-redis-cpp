@@ -16,7 +16,10 @@
 #include "redis_server.hpp"
 #include "client_connection.hpp"
 #include "command_types.hpp"
+#include "key_types.hpp"
 #include "message_types.hpp"
+
+
 
 RedisServer::RedisServer()
 {
@@ -277,6 +280,11 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
             }
             break;
         }
+        case Command::TYPE:
+        {
+            if(cmd.size() == 2)
+                return handleGetType(cmd[1]);
+        }
         default:
         {
 
@@ -284,6 +292,16 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
     }
 
     // std::cout << cmd[0] << std::endl;
+    return response;
+}
+
+CommandResult RedisServer::handleGetType(const std::string& keyname)
+{
+    CommandResult response;
+
+    response.result = global_store.getKeyType(keyname);
+    response.type = MsgType::SIMPLE;
+
     return response;
 }
 
@@ -303,6 +321,7 @@ CommandResult RedisServer::handleSetKey(const std::vector<std::string>& cmd)
 
     if(cmd.size() >=3)
     {
+        global_store.setKeyType(cmd[1], KeyType::STRING);
         if(cmd.size() == 3)
         {
             global_store.setValue(cmd[1],cmd[2]); 
@@ -463,6 +482,23 @@ void RedisServer::SharedStore::setValue(const std::string&key,const std::string&
             record.expiry = std::chrono::steady_clock::now() + std::chrono::seconds(expiry);
     }
     kv_store[key] = std::move(record);
+}
+
+std::string RedisServer::SharedStore::getKeyType(const std::string& keyname)
+{
+    KeyType keytype = KeyType::NONE;
+
+    auto it = key_item_types.find(keyname);
+
+    keytype = (it != key_item_types.end())?it->second:KeyType::NONE;
+    
+    return toTypeName(keytype);
+}
+
+void RedisServer::SharedStore::setKeyType(const std::string& keyname, KeyType type)
+{
+    if(!keyname.empty())
+        key_item_types[keyname] = type;   
 }
 
 

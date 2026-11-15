@@ -29,6 +29,8 @@ enum class ExpiryTimeUnit
     SECONDS
 };
 
+enum class KeyType;
+
 using BlockedClientRef = std::weak_ptr<ClientConnection>;
 
 class RedisServer
@@ -44,6 +46,7 @@ private:
             std::string value;
             std::optional<std::chrono::steady_clock::time_point> expiry;
         };
+        std::unordered_map<std::string, KeyType> key_item_types;
         std::unordered_map<std::string,KeyRecord> kv_store;
         std::unordered_map<std::string,std::vector<std::string>> list_store;
         std::unordered_map<std::string,std::queue<BlockedClientRef>> waiting_clients;
@@ -60,6 +63,8 @@ private:
         // For KV store
         bool getValue(const std::string& key, std::string& value);
         void setValue(const std::string&key,const std::string& value, int expiry = -1, ExpiryTimeUnit unit = ExpiryTimeUnit::MILLISECONDS);
+        std::string getKeyType(const std::string& keyname);
+        void setKeyType(const std::string& keyname, KeyType type);
 
         // for lists
         int list_push_front(const std::string& listname,std::vector<std::string>& element);
@@ -84,7 +89,8 @@ private:
     SharedStore global_store;
 
     CommandResult handleSetKey(const std::vector<std::string>& cmd);
-    CommandResult handleGetKey(const std::string& cmd);
+    CommandResult handleGetKey(const std::string& keyname);
+    CommandResult handleGetType(const std::string& keyname);
     CommandResult handleListLength(const std::string& listname);
     CommandResult handleLeftRange(const std::string& listname,int start, int stop);
     CommandResult handleListPop(const std::string& listname, bool is_blocking, int array_count =0);

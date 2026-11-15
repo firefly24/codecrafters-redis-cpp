@@ -11,7 +11,7 @@ std::string RESPEncoder::encodeMsg(std::string msg, MsgType encode_type)
 {
     if(encode_type == MsgType::SIMPLE)
     {
-        return prefix + msg + separator;
+        return "+" + msg + separator;
     }
 
     if(encode_type == MsgType::BULK)
