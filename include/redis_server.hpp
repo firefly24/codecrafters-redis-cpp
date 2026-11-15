@@ -16,6 +16,7 @@
 #include <memory>
 #include <unordered_map>
 #include <queue>
+#include <utility>
 //#include <asio.hpp>
 
 #include "client_connection.hpp"
@@ -30,6 +31,8 @@ enum class ExpiryTimeUnit
 };
 
 enum class KeyType;
+using StreamEntry = std::vector<std::pair<std::string,std::string>>;
+using Stream = std::vector<StreamEntry>;
 
 using BlockedClientRef = std::weak_ptr<ClientConnection>;
 
@@ -49,7 +52,10 @@ private:
         std::unordered_map<std::string, KeyType> key_item_types;
         std::unordered_map<std::string,KeyRecord> kv_store;
         std::unordered_map<std::string,std::vector<std::string>> list_store;
+        std::unordered_map<std::string,Stream> streams_store;
+
         std::unordered_map<std::string,std::queue<BlockedClientRef>> waiting_clients;
+       
     public:
         SharedStore() = default;
         // delete copy
@@ -73,6 +79,9 @@ private:
         std::vector<std::string> getListRange(const std::string& list_name,int start,int stop);
         std::size_t getListSize(const std::string& listname);
 
+        // for streams
+        bool addStreamEntry(const std::string& stream_name,const std::string& entry_id,std::vector<std::string>& kv_pairs);
+
         void registerWaitingClient(const std::string& listname,BlockedClientRef client);
         //BlockedClientRef getNextBlockedRef(const std::string& listname);
 
@@ -95,6 +104,8 @@ private:
     CommandResult handleLeftRange(const std::string& listname,int start, int stop);
     CommandResult handleListPop(const std::string& listname, bool is_blocking, int array_count =0);
     CommandResult handleListPush(bool front,const std::vector<std::string>& cmd);
+
+    CommandResult handleStreamAdd(const std::vector<std::string>& cmd);
 
 public:
 

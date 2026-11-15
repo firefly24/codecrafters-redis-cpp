@@ -1,6 +1,7 @@
 #include <chrono>
 #include <climits>
 #include <cstddef>
+#include <format>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -284,6 +285,15 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         {
             if(cmd.size() == 2)
                 return handleGetType(cmd[1]);
+            break;
+        }
+        case Command::XADD:
+        {
+            if(cmd.size() >= 3)
+            {
+                return handleStreamAdd(cmd);
+            }
+            break;
         }
         default:
         {
@@ -414,6 +424,27 @@ CommandResult RedisServer::handleLeftRange(const std::string& listname,int start
     CommandResult response;
     response.result_array = global_store.getListRange(listname,start,stop);
     response.type = MsgType::ARRAY;
+
+    return response;
+}
+
+CommandResult RedisServer::handleStreamAdd(const std::vector<std::string>& cmd)
+{
+    CommandResult response;
+
+    if(cmd.size() >=3)
+    {
+        std::string stream_name = cmd[1];
+        std::string entry_id = cmd[2];
+
+        std::vector<std::string> kv_pairs(cmd.begin()+3,cmd.end());
+
+        if(global_store.addStreamEntry(stream_name,entry_id, kv_pairs))
+        {
+            response.result = entry_id;
+            response.type = MsgType::BULK;
+        }
+    }
 
     return response;
 }
@@ -607,6 +638,29 @@ std::vector<std::string> RedisServer::SharedStore::list_pop_front(const std::str
     return elements;
 }
 
+bool RedisServer::SharedStore::addStreamEntry(const std::string& stream_name,const std::string& entry_id,std::vector<std::string>& kv_pairs)
+{
+    if(stream_name.empty() || (kv_pairs.size()%2) )
+        return false;
+
+    Stream& stream = streams_store[stream_name];
+
+    setKeyType(stream_name, KeyType::STREAM);
+
+    StreamEntry stream_entry = {{"id", entry_id}}; 
+
+    auto key = kv_pairs.begin();
+    while(key != kv_pairs.end())
+    {
+        auto value = key+1;
+        stream_entry.emplace_back(*key,*value);
+        key +=2;
+    }
+
+    stream.push_back(std::move(stream_entry));
+
+    return true;
+}
 
 void RedisServer::SharedStore::registerWaitingClient(const std::string& listname, BlockedClientRef client)
 {

@@ -16,6 +16,7 @@ enum class Command
     LPOP,
     BLPOP,
     TYPE,
+    XADD,
     UNKNOWN
 };
 
@@ -34,7 +35,8 @@ inline Command toCommand(const std::string& cmd_name)
             {"LLEN", Command::LLEN},
             {"LPOP", Command::LPOP},
             {"BLPOP", Command::BLPOP},
-            {"TYPE", Command::TYPE}
+            {"TYPE", Command::TYPE},
+            {"XADD", Command::XADD}
         };
     auto it = commands.find(cmd_name);
 
