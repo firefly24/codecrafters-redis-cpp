@@ -54,8 +54,6 @@ bool ClientConnection::serveRequest()
         //    std::cout << word << "*" << std::endl;
 
         std::string reply ="";
-        //std::string response;
-        //MsgType encoding_type = server_.processCommand(cmd,result);
         CommandResult response = server_.processCommand(cmd);
 
         if(response.type == MsgType::DEFER)

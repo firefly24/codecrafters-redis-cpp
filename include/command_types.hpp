@@ -15,7 +15,7 @@ enum class Command
     LLEN,
     LPOP,
     BLPOP,
-    UNKOWN
+    UNKNOWN
 };
 
 static const std::unordered_map<std::string, Command> commands = 
@@ -32,9 +32,9 @@ static const std::unordered_map<std::string, Command> commands =
             {"BLPOP", Command::BLPOP}
         };
 
-Command toCommand(const std::string& cmd_name)
+inline Command toCommand(const std::string& cmd_name)
 {
     auto it = commands.find(cmd_name);
 
-    return (it != commands.end())? it->second: Command::UNKOWN;
+    return (it != commands.end())? it->second: Command::UNKNOWN;
 }

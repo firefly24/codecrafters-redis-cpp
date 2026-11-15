@@ -221,17 +221,12 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         case Command::GET:
         {
             if(cmd.size() == 2)
-            {
-                if(global_store.getValue(cmd[1],response.result))
-                    response.type = MsgType::BULK;
-                else
-                    response.type =  MsgType::EMPTY;
-            }
+                return handleGetKey(cmd[1]);
             break;
         }
         case Command::SET:
         {
-            response.type = handleSetKey(cmd,response.result);
+            return handleSetKey(cmd);
             break;
         }
         case Command::RPUSH:
@@ -258,54 +253,30 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         {
             if (cmd.size() == 2)
                 return handleListLength(cmd[1]);
-            else
-                return handleListLength("");
+            break;
         }
         case Command::LPOP:
         { 
             response.type = MsgType::EMPTY;
 
-            if(cmd.size() >= 2)
-            {
-                int expected_multi_count = 0;
-                if(cmd.size() == 3)
-                    expected_multi_count = std::stoi(cmd[2]);
-
-                return handleListPop(cmd[1],false,expected_multi_count);
-
-
-                /*
-                if(cmd.size() == 2)
-                {
-                    if(response.result_array.size())
-                    {
-                        response.result = response.result_array[0];
-                        response.type = MsgType::BULK;
-                    }
-                }
-                else
-                {
-                    response.type = MsgType::ARRAY;
-                }
-                */
-            }
-            break;
-        }
-        case Command::BLPOP:
-        {
-            // Since the server execution is single threaded for now,
-            // this operation just returns if an element is available for immediate pop without actually popping
-            // The actual pop happens in the second call - ProcessCommandComplex, 
-            // and no other client modifies the list inbetween for single threaded process
-            
+            if(cmd.size() == 2)
+                return handleListPop(cmd[1],false);
             if(cmd.size() == 3)
             {
-                CommandResult response =  handleListPop(cmd[1],true,1);
+                int expected_multi_count = std::stoi(cmd[2]);
+                return handleListPop(cmd[1],false,expected_multi_count);
+            }
+            return response;
+        }
+        case Command::BLPOP:
+        {            
+            if(cmd.size() == 3)
+            {
+                response =  handleListPop(cmd[1],true,1);
                 if(response.type == MsgType::DEFER)
                     response.result = cmd[2];
-                return response;
             }
-            break;
+            return response;
         }
         default:
         {
@@ -317,20 +288,34 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
     return response;
 }
 
-MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::string& response)
+CommandResult RedisServer::handleGetKey(const std::string& keyname)
 {
+    CommandResult response;
+    if(global_store.getValue(keyname,response.result))
+        response.type = MsgType::BULK;
+    else
+        response.type =  MsgType::EMPTY;
+    return response;
+}
+
+CommandResult RedisServer::handleSetKey(const std::vector<std::string>& cmd)
+{
+    CommandResult response;
+
     if(cmd.size() >=3)
     {
         if(cmd.size() == 3)
         {
             global_store.setValue(cmd[1],cmd[2]); 
-            response = "OK";
-            return MsgType::SIMPLE;
+            response.result = "OK";
+            response.type = MsgType::SIMPLE;
         }
         else if(cmd.size() == 5)
         {
             int duration  = std::stoi(cmd[4]);
 
+            response.result = "OK";
+            response.type =  MsgType::SIMPLE;
             if(cmd[3] == "EX")
             {
                 global_store.setValue(cmd[1],cmd[2],duration,ExpiryTimeUnit::SECONDS);
@@ -340,15 +325,12 @@ MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::stri
                 global_store.setValue(cmd[1], cmd[2], duration,ExpiryTimeUnit::MILLISECONDS);
             }
             else {
-                response = "";
-                return MsgType::INVALID;
+                response.result = "";
+                response.type = MsgType::INVALID;
             }
-            response = "OK";
-            return MsgType::SIMPLE;
         }
     }
-    response = "";
-    return MsgType::INVALID;
+    return response;
 }
 
 CommandResult RedisServer::handleListLength(const std::string& listname)
@@ -408,32 +390,6 @@ CommandResult RedisServer::handleListPop(const std::string& listname,bool is_blo
     return response;
 }
 
-/*
-std::vector<std::string> RedisServer::handleListPop(const std::vector<std::string>& cmd,bool is_blocking)
-{
-    if(cmd.empty() || cmd.size() < 2)
-        return {};
-
-    int count =1;
-    if( is_blocking )
-    {
-        if(cmd.size() == 3)
-        {
-            //std::cout << cmd[1] << std::endl;
-            return global_store.list_pop_front(cmd[1],1,true);
-        }
-    }
-    else
-    {
-        if(cmd.size() == 3)
-            count = std::stoi(cmd[2]);
-        
-        return global_store.list_pop_front(cmd[1],count,false);
-        
-    }
-    return {};
-}
-*/
 CommandResult RedisServer::handleLeftRange(const std::string& listname,int start, int stop)
 {
     CommandResult response;
@@ -463,9 +419,6 @@ void RedisServer::wakeBlockedClient(std::string& listname)
     auto result_array = global_store.list_pop_front(listname,1,true);
 
     client->createAndSendResponse(result_array,MsgType::ARRAY);
-
-    //std::string reply = client->encodeResponse(response);
-    //client->sendResponse(reply);
     
     client->unblock();
 }
