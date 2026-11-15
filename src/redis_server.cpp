@@ -245,8 +245,15 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         }
         case Command::LRANGE:
         {
-            response.result_array= handleLeftRange(cmd);
-            response.type =  MsgType::ARRAY;
+            if(cmd.size() == 4 )
+            {
+                // TODO: can throw exception, replace with robust mechanism later
+                int start = std::stoi(cmd[2]);
+                int stop = std::stoi(cmd[3]);
+
+                response.result_array= handleLeftRange(cmd[1],start,stop);
+                response.type =  MsgType::ARRAY;
+            }
             break;
         }
         case Command::LLEN:
@@ -394,6 +401,12 @@ std::vector<std::string> RedisServer::handleListPop(const std::vector<std::strin
     return {};
 }
 
+std::vector<std::string> RedisServer::handleLeftRange(const std::string& listname,int start, int stop)
+{
+        return global_store.getListRange(listname,start,stop);
+}
+
+/*
 std::vector<std::string> RedisServer::handleLeftRange(const std::vector<std::string>& cmd)
 {
     if( (cmd.size() == 4) && (cmd[0]== "LRANGE") )
@@ -405,6 +418,7 @@ std::vector<std::string> RedisServer::handleLeftRange(const std::vector<std::str
     }
     return {};
 }
+*/
 
 void RedisServer::requestWaiterRegistration(const std::string& listname,BlockedClientRef client)
 {
