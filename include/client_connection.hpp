@@ -24,6 +24,8 @@ public:
 
     bool serveRequest();
 
+    bool createAndSendResponse(const std::vector<std::string>& response,MsgType);
+
     bool sendResponse(const std::string& response);
 
     std::string encodeResponse(CommandResult&);

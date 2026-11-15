@@ -7,6 +7,7 @@ enum class MsgType
     SIMPLE,
     BULK,
     EMPTY,
+    NULL_ARRAY,
     INTEGER,
     ARRAY,
     DEFER,

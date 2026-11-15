@@ -28,6 +28,10 @@ std::string RESPEncoder::encodeMsg(std::string msg, MsgType encode_type)
     }
     if(encode_type == MsgType::INVALID)
         return "";
+    if(encode_type == MsgType::NULL_ARRAY)
+    {
+        return "*-1" + separator;
+    }
     if(encode_type == MsgType::DEFER)
         throw std::runtime_error("DEFER should never be encoded");
     return "";

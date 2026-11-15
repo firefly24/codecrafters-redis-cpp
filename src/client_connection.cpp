@@ -86,6 +86,18 @@ bool ClientConnection::serveRequest()
     return true;
 }
 
+bool ClientConnection::createAndSendResponse(const std::vector<std::string>& msg,MsgType type)
+{
+    std::string reply;
+    CommandResult response;
+    response.type = type;
+    response.result_array = msg;
+
+    reply= encodeResponse(response);
+
+    return sendResponse(reply);
+}
+
 std::string ClientConnection::encodeResponse(CommandResult& response)
 {
     if(response.type == MsgType::ARRAY)

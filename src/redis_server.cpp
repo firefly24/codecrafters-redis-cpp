@@ -168,6 +168,14 @@ void RedisServer::runEventLoop()
         for(std::size_t i=1; i<poll_fds.size(); i++)
         {
             //std::cerr << "POLLIN: blocked=" << clients[i-1]->isBlocked() << std::endl;
+            if(clients[i-1]->isBlocked())
+            {
+                if(clients[i-1]->getTimeoutMs() == 0)
+                {
+                    clients[i-1]->createAndSendResponse({}, MsgType::NULL_ARRAY);
+                    clients[i-1]->unblock();
+                }
+            }
             if( (!clients[i-1]->isBlocked()) && (poll_fds[i].revents & POLLIN) )
             {
                 if(!clients[i-1]->serveRequest())
@@ -480,6 +488,7 @@ std::vector<std::string> RedisServer::handleListPop(const std::vector<std::strin
     {
         if(cmd.size() == 3)
         {
+            //std::cout << cmd[1] << std::endl;
             return global_store.list_pop_front(cmd[1],1,true);
         }
     }
@@ -515,13 +524,12 @@ void RedisServer::wakeBlockedClient(std::string& listname)
     if(!client)
         return;
 
-    CommandResult response;
-    // trigger pop 
-    response.result_array = global_store.list_pop_front(listname,1,true);
-    response.type = MsgType::ARRAY;
+    auto result_array = global_store.list_pop_front(listname,1,true);
 
-    std::string reply = client->encodeResponse(response);
-    client->sendResponse(reply);
+    client->createAndSendResponse(result_array,MsgType::ARRAY);
+
+    //std::string reply = client->encodeResponse(response);
+    //client->sendResponse(reply);
     
     client->unblock();
 }
@@ -695,7 +703,7 @@ std::shared_ptr<ClientConnection> RedisServer::SharedStore::getNextBlockedRef(co
             auto client = waiters.front().lock();
             waiters.pop();
 
-            if(client)
+            if(client && client->isBlocked())
                 return client;
         }
     }
