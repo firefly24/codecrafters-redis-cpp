@@ -237,12 +237,10 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         case Command::RPUSH:
         {
             return handleListPush(false,cmd);
-            //break;
         }
         case Command::LPUSH:
         {
             return handleListPush(true,cmd);
-            //break;
         }
         case Command::LRANGE:
         {
@@ -252,21 +250,16 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
                 int start = std::stoi(cmd[2]);
                 int stop = std::stoi(cmd[3]);
 
-                response.result_array= handleLeftRange(cmd[1],start,stop);
-                response.type =  MsgType::ARRAY;
+                return handleLeftRange(cmd[1],start,stop);
             }
             break;
         }
         case Command::LLEN:
         {
-            std::size_t list_size = 0;
-
-            if (cmd.size() >= 2)
-                list_size = global_store.getListSize(cmd[1]);
-
-            response.result = std::to_string(list_size);
-            response.type = MsgType::INTEGER;
-            break;
+            if (cmd.size() == 2)
+                return handleListLength(cmd[1]);
+            else
+                return handleListLength("");
         }
         case Command::LPOP:
         { 
@@ -274,8 +267,14 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
 
             if(cmd.size() >= 2)
             {
-                response.result_array = handleListPop(cmd,false);
+                int expected_multi_count = 0;
+                if(cmd.size() == 3)
+                    expected_multi_count = std::stoi(cmd[2]);
 
+                return handleListPop(cmd[1],false,expected_multi_count);
+
+
+                /*
                 if(cmd.size() == 2)
                 {
                     if(response.result_array.size())
@@ -288,6 +287,7 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
                 {
                     response.type = MsgType::ARRAY;
                 }
+                */
             }
             break;
         }
@@ -300,8 +300,9 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
             
             if(cmd.size() == 3)
             {
-                response.result_array = handleListPop(cmd,true);
+                return handleListPop(cmd[1],true,1);
 
+                /*
                 if (!response.result_array.size())
                     response.type = MsgType::INVALID;
                 else if(response.result_array.size() == 1)
@@ -311,6 +312,7 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
                 }
                 else if (response.result_array.size() > 1)
                     response.type = MsgType::ARRAY;
+                */
             }
             break;
         }
@@ -326,7 +328,7 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
 
 MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::string& response)
 {
-    if(cmd.size() >=3 && cmd[0] == "SET")
+    if(cmd.size() >=3)
     {
         if(cmd.size() == 3)
         {
@@ -358,13 +360,24 @@ MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::stri
     return MsgType::INVALID;
 }
 
+CommandResult RedisServer::handleListLength(const std::string& listname)
+{
+    CommandResult response;
+
+    std::size_t list_size = global_store.getListSize(listname);
+
+    response.result = std::to_string(list_size);
+    response.type = MsgType::INTEGER;
+    return response;
+}
+
 CommandResult RedisServer::handleListPush(bool front,const std::vector<std::string>& cmd)
 {
     CommandResult response;
     int list_size = -1;
     if ( (cmd.size() >= 3) )
     {
-        if( (front))
+        if(front)
             list_size = global_store.list_push_front(cmd[1], cmd);
         else
             list_size = global_store.list_push_back(cmd[1], cmd);
@@ -377,42 +390,44 @@ CommandResult RedisServer::handleListPush(bool front,const std::vector<std::stri
     return response;
 }
 
-/*
-MsgType RedisServer::handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front)
+CommandResult RedisServer::handleListPop(const std::string& listname,bool is_blocking,int array_count)
 {
-    int list_size = -1;
-    if ( (cmd.size() >= 3) )
-    {
-        if( (cmd[0] == "RPUSH") && (!front) )
-            list_size = global_store.list_push_back(cmd[1], cmd);
-        if( (cmd[0]=="LPUSH") && front )
-            list_size = global_store.list_push_front(cmd[1], cmd);
-    }
-    if(list_size == -1)
-    {
-        response = "";
-        return MsgType::INVALID;
-    }
-    response = std::to_string(list_size);
-    return MsgType::INTEGER;
-}
-*/
+    CommandResult response;
+    response.type = MsgType::EMPTY;
 
+    array_count = (is_blocking)?1:array_count;
+
+    response.result_array =  global_store.list_pop_front(listname,is_blocking,array_count);
+
+    if(!response.result_array.size())
+        return response;
+    
+    // single non-blocking pop
+    if(array_count == 0)
+    {
+        response.result = response.result_array[0];
+        response.type = MsgType::BULK;
+    }
+    else 
+    {
+        response.type = MsgType::ARRAY;
+        if(is_blocking && (response.result_array.size() == 1) )
+        {
+            response.result = listname;
+            response.type = MsgType::DEFER;
+        }
+    }
+    return response;
+}
+
+/*
 std::vector<std::string> RedisServer::handleListPop(const std::vector<std::string>& cmd,bool is_blocking)
 {
     if(cmd.empty() || cmd.size() < 2)
         return {};
 
     int count =1;
-    if( (cmd[0] == "LPOP") )
-    {
-        if(cmd.size() == 3)
-            count = std::stoi(cmd[2]);
-        
-        return global_store.list_pop_front(cmd[1],count,false);
-        
-    }
-    if(cmd[0] == "BLPOP")
+    if( is_blocking )
     {
         if(cmd.size() == 3)
         {
@@ -420,27 +435,25 @@ std::vector<std::string> RedisServer::handleListPop(const std::vector<std::strin
             return global_store.list_pop_front(cmd[1],1,true);
         }
     }
-    return {};
-}
-
-std::vector<std::string> RedisServer::handleLeftRange(const std::string& listname,int start, int stop)
-{
-        return global_store.getListRange(listname,start,stop);
-}
-
-/*
-std::vector<std::string> RedisServer::handleLeftRange(const std::vector<std::string>& cmd)
-{
-    if( (cmd.size() == 4) && (cmd[0]== "LRANGE") )
+    else
     {
-        // TODO: can throw exception, replace with robust mechanism later
-        int start = std::stoi(cmd[2]);
-        int stop = std::stoi(cmd[3]);
-        return global_store.getListRange(cmd[1],start,stop);
+        if(cmd.size() == 3)
+            count = std::stoi(cmd[2]);
+        
+        return global_store.list_pop_front(cmd[1],count,false);
+        
     }
     return {};
 }
 */
+CommandResult RedisServer::handleLeftRange(const std::string& listname,int start, int stop)
+{
+    CommandResult response;
+    response.result_array = global_store.getListRange(listname,start,stop);
+    response.type = MsgType::ARRAY;
+
+    return response;
+}
 
 void RedisServer::requestWaiterRegistration(const std::string& listname,BlockedClientRef client)
 {
@@ -592,7 +605,7 @@ std::size_t RedisServer::SharedStore::getListSize(const std::string& listname)
     return it->second.size();
 }
 
-std::vector<std::string> RedisServer::SharedStore::list_pop_front(const std::string& listname, int count, bool isblocking)
+std::vector<std::string> RedisServer::SharedStore::list_pop_front(const std::string& listname, bool isblocking,int count)
 {
     if(listname.empty())
         return {};
@@ -607,7 +620,7 @@ std::vector<std::string> RedisServer::SharedStore::list_pop_front(const std::str
     if(it != list_store.end())
     {
         std::vector<std::string>& list = it->second;
-
+        count = std::max(count,1);
         while( count && !list.empty())
         {
             elements.push_back(std::move(list.front()));

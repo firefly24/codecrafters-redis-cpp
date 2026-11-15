@@ -65,7 +65,7 @@ private:
         int list_push_front(const std::string& listname,const std::vector<std::string>& element);
         int list_push_back(const std::string& listname,const std::vector<std::string>& element);
         //bool list_pop_front(const std::string& listname,std::string& response);
-        std::vector<std::string> list_pop_front(const std::string& listname,int count =1,bool isblocking = false);
+        std::vector<std::string> list_pop_front(const std::string& listname,bool isblocking = false,int count =1);
         std::vector<std::string> getListRange(const std::string& list_name,int start,int stop);
         std::size_t getListSize(const std::string& listname);
 
@@ -85,8 +85,10 @@ private:
     SharedStore global_store;
 
     //std::vector<std::string> handleLeftRange(const std::vector<std::string>& cmd);
-    std::vector<std::string> handleLeftRange(const std::string& listname,int start, int stop);
-    std::vector<std::string> handleListPop(const std::vector<std::string>& cmd, bool is_blocking = false);
+    CommandResult handleListLength(const std::string& listname);
+    CommandResult handleLeftRange(const std::string& listname,int start, int stop);
+    //std::vector<std::string> handleListPop(const std::vector<std::string>& cmd, bool is_blocking = false);
+    CommandResult handleListPop(const std::string& listname, bool is_blocking, int array_count =0);
     MsgType handleSetKey(const std::vector<std::string>& cmd, std::string& response);
     //MsgType handleListPush(const std::vector<std::string>& cmd,std::string& response,bool front);
     CommandResult handleListPush(bool front,const std::vector<std::string>& cmd);
