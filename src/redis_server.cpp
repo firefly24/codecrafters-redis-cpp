@@ -15,6 +15,7 @@
 
 #include "redis_server.hpp"
 #include "client_connection.hpp"
+#include "command_types.hpp"
 #include "message_types.hpp"
 
 RedisServer::RedisServer()
@@ -198,224 +199,122 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         return response;
     }
 
-    // std::cout << cmd[0] << std::endl;
-
-    if(cmd[0] == "PING")
+    Command command = toCommand(cmd[0]);
+    
+    switch (command) 
     {
-        response.result = "PONG";
-        response.type = MsgType::SIMPLE;
-    }
-    if(cmd[0] == "ECHO")
-    {
-        if(cmd.size() == 2)
+        case Command::PING:
         {
-            response.result = cmd[1];
-            response.type = MsgType::BULK;
+            response.result = "PONG";
+            response.type = MsgType::SIMPLE;
+            break;
         }
-    }
-    if(cmd[0] == "GET")
-    {
-        if(cmd.size() == 2)
+        case Command::ECHO:
         {
-            if(global_store.getValue(cmd[1],response.result))
-                response.type = MsgType::BULK;
-            else
-                response.type =  MsgType::EMPTY;
-        }
-    }
-    if(cmd[0] == "RPUSH")
-    {
-        response.type =  handleListPush(cmd,response.result,false);
-    }
-    if(cmd[0] == "LPUSH")
-    {
-        response.type = handleListPush(cmd, response.result, true);
-    }
-
-    if(cmd[0] == "SET")
-    {
-        response.type = handleSetKey(cmd,response.result);
-    }
-    if(cmd[0] == "LRANGE")
-    {
-        response.result_array= handleLeftRange(cmd);
-        response.type =  MsgType::ARRAY;
-    }
-    if(cmd[0] == "LLEN")
-    {
-        std::size_t list_size = 0;
-
-        if (cmd.size() >= 2)
-            list_size = global_store.getListSize(cmd[1]);
-
-        response.result = std::to_string(list_size);
-        response.type = MsgType::INTEGER;
-    }
-    if(cmd[0] == "LPOP")
-    { 
-        response.type = MsgType::EMPTY;
-
-        if(cmd.size() >= 2)
-        {
-            response.result_array = handleListPop(cmd,false);
-
             if(cmd.size() == 2)
             {
-                if(response.result_array.size())
-                {
-                    response.result = response.result_array[0];
+                response.result = cmd[1];
+                response.type = MsgType::BULK;
+            }
+            break;
+        }
+        case Command::GET:
+        {
+            if(cmd.size() == 2)
+            {
+                if(global_store.getValue(cmd[1],response.result))
                     response.type = MsgType::BULK;
+                else
+                    response.type =  MsgType::EMPTY;
+            }
+            break;
+        }
+        case Command::SET:
+        {
+            response.type = handleSetKey(cmd,response.result);
+        }
+        case Command::RPUSH:
+        {
+            response.type =  handleListPush(cmd,response.result,false);
+            break;
+        }
+        case Command::LPUSH:
+        {
+            response.type = handleListPush(cmd, response.result, true);
+            break;
+        }
+        case Command::LRANGE:
+        {
+            response.result_array= handleLeftRange(cmd);
+            response.type =  MsgType::ARRAY;
+            break;
+        }
+        case Command::LLEN:
+        {
+            std::size_t list_size = 0;
+
+            if (cmd.size() >= 2)
+                list_size = global_store.getListSize(cmd[1]);
+
+            response.result = std::to_string(list_size);
+            response.type = MsgType::INTEGER;
+            break;
+        }
+        case Command::LPOP:
+        { 
+            response.type = MsgType::EMPTY;
+
+            if(cmd.size() >= 2)
+            {
+                response.result_array = handleListPop(cmd,false);
+
+                if(cmd.size() == 2)
+                {
+                    if(response.result_array.size())
+                    {
+                        response.result = response.result_array[0];
+                        response.type = MsgType::BULK;
+                    }
+                }
+                else
+                {
+                    response.type = MsgType::ARRAY;
                 }
             }
-            else
-            {
-                response.type = MsgType::ARRAY;
-            }
+            break;
         }
-    }
-    if(cmd[0] == "BLPOP")
-    {
-        // Since the server execution is single threaded for now,
-        // this operation just returns if an element is available for immediate pop without actually popping
-        // The actual pop happens in the second call - ProcessCommandComplex, 
-        // and no other client modifies the list inbetween for single threaded process
-        
-        if(cmd.size() == 3)
+        case Command::BLPOP:
         {
-            response.result_array = handleListPop(cmd,true);
-
-            if (!response.result_array.size())
-                response.type = MsgType::INVALID;
-            else if(response.result_array.size() == 1)
+            // Since the server execution is single threaded for now,
+            // this operation just returns if an element is available for immediate pop without actually popping
+            // The actual pop happens in the second call - ProcessCommandComplex, 
+            // and no other client modifies the list inbetween for single threaded process
+            
+            if(cmd.size() == 3)
             {
-                response.result = cmd[2];
-                response.type = MsgType::DEFER;
+                response.result_array = handleListPop(cmd,true);
+
+                if (!response.result_array.size())
+                    response.type = MsgType::INVALID;
+                else if(response.result_array.size() == 1)
+                {
+                    response.result = cmd[2];
+                    response.type = MsgType::DEFER;
+                }
+                else if (response.result_array.size() > 1)
+                    response.type = MsgType::ARRAY;
             }
-            else if (response.result_array.size() > 1)
-                response.type = MsgType::ARRAY;
+            break;
         }
-    }
-    return response;
-}
-/*
-MsgType RedisServer::processCommand(const std::vector<std::string>& cmd,std::string& response)
-{
-    if(cmd.empty())
-    {
-        response = "";
-        return MsgType::EMPTY;
+        default:
+        {
+            return response;
+        }
     }
 
     // std::cout << cmd[0] << std::endl;
-
-    if(cmd[0] == "PING")
-    {
-        response = "PONG";
-        return MsgType::SIMPLE;
-    }
-    if(cmd[0] == "ECHO")
-    {
-        if(cmd.size() >1)
-        {
-            response = cmd[1];
-            return MsgType::BULK;
-        }
-    }
-    if(cmd[0] == "GET")
-    {
-        if(cmd.size() > 1)
-        {
-            if(global_store.getValue(cmd[1],response))
-                return MsgType::BULK;
-            return MsgType::EMPTY;
-        }
-    }
-    if(cmd[0] == "RPUSH")
-    {
-        return handleListPush(cmd,response,false);
-    }
-    if(cmd[0] == "LPUSH")
-    {
-        return handleListPush(cmd, response, true);
-    }
-
-    if(cmd[0] == "SET")
-    {
-        return handleSetKey(cmd,response);
-    }
-    if(cmd[0] == "LRANGE")
-    {
-        return MsgType::ARRAY;
-    }
-    if(cmd[0] == "LLEN")
-    {
-        std::size_t list_size = 0;
-
-        if (cmd.size() >= 2)
-            list_size = global_store.getListSize(cmd[1]);
-
-        response = std::to_string(list_size);
-        return MsgType::INTEGER;
-    }
-    if(cmd[0] == "LPOP")
-    { 
-        if(cmd.size() == 3)
-            return MsgType::ARRAY;
-        if(cmd.size() == 2)
-        {
-            std::vector<std::string> reply = handleListPop(cmd);
-            if(!reply.empty())
-            {
-                response = std::move(reply[0]);
-                return MsgType::BULK;
-            }
-        }
-        return MsgType::EMPTY;
-    }
-    if(cmd[0] == "BLPOP")
-    {
-        // Since the server execution is single threaded for now,
-        // this operation just returns if an element is available for immediate pop without actually popping
-        // The actual pop happens in the second call - ProcessCommandComplex, 
-        // and no other client modifies the list inbetween for single threaded process
-        
-        if(cmd.size() == 3)
-        {
-            int list_size = global_store.getListSize(cmd[1]);
-            if(list_size)
-                return MsgType::ARRAY;
-            else
-                return MsgType::DEFER;
-    
-        }
-        
-        //return MsgType::ARRAY;
-    }
-
-    response = "";
-    return MsgType::INVALID;
+    return response;
 }
-
-std::vector<std::string> RedisServer::processCommandComplex(const std::vector<std::string>& cmd)
-{
-    if(cmd.empty())
-        return {};
-
-    if( cmd[0] == "LRANGE" )
-    {
-        return handleLeftRange(cmd);
-    }
-    if(cmd[0] == "LPOP")
-        return handleListPop(cmd);
-
-    if( (cmd[0] == "BLPOP") && (cmd.size() == 3))
-    {
-        return handleListPop(cmd);
-        //return reply;
-    }
-    return {};
-}
-*/
 
 MsgType RedisServer::handleSetKey(const std::vector<std::string>& cmd, std::string& response)
 {

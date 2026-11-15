@@ -20,6 +20,7 @@
 
 #include "client_connection.hpp"
 #include "message_types.hpp"
+#include "command_types.hpp"
 
 #define PORTNO 6379
 
