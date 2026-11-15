@@ -232,6 +232,7 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         case Command::SET:
         {
             response.type = handleSetKey(cmd,response.result);
+            break;
         }
         case Command::RPUSH:
         {
