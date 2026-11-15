@@ -300,7 +300,10 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
             
             if(cmd.size() == 3)
             {
-                return handleListPop(cmd[1],true,1);
+                CommandResult response =  handleListPop(cmd[1],true,1);
+                if(response.type == MsgType::DEFER)
+                    response.result = cmd[2];
+                return response;
 
                 /*
                 if (!response.result_array.size())
