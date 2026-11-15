@@ -304,18 +304,6 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
                 if(response.type == MsgType::DEFER)
                     response.result = cmd[2];
                 return response;
-
-                /*
-                if (!response.result_array.size())
-                    response.type = MsgType::INVALID;
-                else if(response.result_array.size() == 1)
-                {
-                    response.result = cmd[2];
-                    response.type = MsgType::DEFER;
-                }
-                else if (response.result_array.size() > 1)
-                    response.type = MsgType::ARRAY;
-                */
             }
             break;
         }
@@ -415,10 +403,7 @@ CommandResult RedisServer::handleListPop(const std::string& listname,bool is_blo
     {
         response.type = MsgType::ARRAY;
         if(is_blocking && (response.result_array.size() == 1) )
-        {
-            response.result = listname;
             response.type = MsgType::DEFER;
-        }
     }
     return response;
 }
