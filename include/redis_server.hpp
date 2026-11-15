@@ -62,8 +62,8 @@ private:
         void setValue(const std::string&key,const std::string& value, int expiry = -1, ExpiryTimeUnit unit = ExpiryTimeUnit::MILLISECONDS);
 
         // for lists
-        int list_push_front(const std::string& listname,const std::vector<std::string>& element);
-        int list_push_back(const std::string& listname,const std::vector<std::string>& element);
+        int list_push_front(const std::string& listname,std::vector<std::string>& element);
+        int list_push_back(const std::string& listname,std::vector<std::string>& element);
         std::vector<std::string> list_pop_front(const std::string& listname,bool isblocking = false,int count =1);
         std::vector<std::string> getListRange(const std::string& list_name,int start,int stop);
         std::size_t getListSize(const std::string& listname);

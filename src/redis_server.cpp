@@ -227,7 +227,6 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
         case Command::SET:
         {
             return handleSetKey(cmd);
-            break;
         }
         case Command::RPUSH:
         {
@@ -266,7 +265,7 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
                 int expected_multi_count = std::stoi(cmd[2]);
                 return handleListPop(cmd[1],false,expected_multi_count);
             }
-            return response;
+            break;
         }
         case Command::BLPOP:
         {            
@@ -276,11 +275,11 @@ CommandResult RedisServer::processCommand( const std::vector<std::string>& cmd)
                 if(response.type == MsgType::DEFER)
                     response.result = cmd[2];
             }
-            return response;
+            break;
         }
         default:
         {
-            return response;
+
         }
     }
 
@@ -468,7 +467,7 @@ void RedisServer::SharedStore::setValue(const std::string&key,const std::string&
 
 
 // Takes full command vector as input, and consumes all the list elements
-int RedisServer::SharedStore::list_push_back(const std::string& list_name,const std::vector<std::string>& elements)
+int RedisServer::SharedStore::list_push_back(const std::string& list_name,std::vector<std::string>& elements)
 {
     if(list_name.empty())
         return -1;
@@ -486,7 +485,7 @@ int RedisServer::SharedStore::list_push_back(const std::string& list_name,const 
 }
 
 // Takes full command vector as input, and consumes all the list elements
-int RedisServer::SharedStore::list_push_front(const std::string& list_name,const std::vector<std::string>& elements)
+int RedisServer::SharedStore::list_push_front(const std::string& list_name,std::vector<std::string>& elements)
 {
     if(list_name.empty())
         return -1;

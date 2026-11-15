@@ -55,7 +55,7 @@ bool ClientConnection::serveRequest()
         if(!handleResponse(response))
             return false;
 
-        if(cmd.size() && (cmd[0]=="LPUSH" || cmd[0]=="RPUSH"))
+        if((cmd.size()>=3) && (cmd[0]=="LPUSH" || cmd[0]=="RPUSH"))
             server_.wakeBlockedClient(cmd[1]);
     }
     return true;
